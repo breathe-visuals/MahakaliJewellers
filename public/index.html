@@ -1,146 +1,130 @@
 <!doctype html>
 <html lang="en">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#275467" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Mahakali Jewellers" />
   <meta name="description" content="Mahakali Jewellers live gold, silver and coin rates." />
-  <title>Mahakali Jewellers – Live Rates</title>
-  <link rel="icon" href="/Media/favicon.svg" type="image/svg+xml" />
-  <link rel="icon" href="/Media/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/Media/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="/Media/favicon-16x16.png" />
-  <link rel="apple-touch-icon" href="/Media/apple-touch-icon.png" />
-  <link rel="manifest" href="/Media/site.webmanifest" />
-  <link rel="stylesheet" href="/styles.css" />
+  <title>Mahakali Jewellers</title>
+
+  <link rel="icon" href="Media/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="Media/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="Media/favicon-16x16.png" />
+  <link rel="apple-touch-icon" href="Media/apple-touch-icon.png" />
+  <link rel="manifest" href="Media/site.webmanifest" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
+
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <img class="brand-logo" src="/Media/logo.svg" alt="Mahakali Jewellers" />
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-wrap">
+        <div class="brand-mark">M</div>
         <div>
-          <div class="brand-title">Mahakali Jewellers</div>
-          <div class="brand-subtitle">Live bullion and coin rates</div>
+          <div class="brand-name">Mahakali Jewellers</div>
+          <div class="brand-sub">Live rate dashboard</div>
         </div>
       </div>
-      <div class="status-pill">
+
+      <div class="status-chip">
         <span id="statusDot" class="status-dot"></span>
         <span id="statusText">Connecting…</span>
       </div>
-    </header>
 
-    <main class="pages">
-      <section class="page active" id="page-gold" data-page="gold">
-        <div class="page-head">
-          <h1>Gold</h1>
-          <p>Gopnath gold rates with karat conversion.</p>
-          <div class="updated">Last updated: <span id="goldUpdated">—</span></div>
-        </div>
+      <div id="lastUpdated" class="last-updated">—</div>
+    </div>
+  </header>
 
-        <section class="card stack">
-          <div class="section-title">Gold Karats</div>
-          <div class="karat-grid" id="goldKaratGrid"></div>
-        </section>
+  <main class="app-shell">
+    <section id="page-gold" class="page active">
+      <div class="page-head">
+        <h1>Gold Page</h1>
+        <p>Gopnath rates with 24K to 9K calculation from 999 IMP RTGS.</p>
+      </div>
 
-        <section class="card stack">
-          <div class="section-title">Gold Rates</div>
-          <div class="rate-table-wrap">
-            <table class="rate-table">
-              <thead>
-                <tr>
-                  <th>PRODUCT</th>
-                  <th>BUY</th>
-                  <th>SELL</th>
-                  <th>HIGH</th>
-                  <th>LOW</th>
-                </tr>
-              </thead>
-              <tbody id="goldRatesBody"></tbody>
-            </table>
+      <div class="stack">
+        <div class="stack-title">Karat Rates</div>
+        <div id="goldKaratGrid" class="karat-grid"></div>
+      </div>
+
+      <div class="stack">
+        <div class="stack-title">Gold Product Rates</div>
+        <div id="goldProductTable"></div>
+      </div>
+
+      <div class="stack">
+        <div class="stack-title">Gold Future &amp; Spot</div>
+        <div class="two-col">
+          <div>
+            <div class="mini-title">Future</div>
+            <div id="goldFutureTable"></div>
           </div>
-        </section>
-
-        <section class="stack-grid">
-          <article class="card mini-card">
-            <div class="section-title">Gold Future</div>
-            <div class="mini-rates" id="goldFutureBox"></div>
-          </article>
-          <article class="card mini-card">
-            <div class="section-title">Gold Spot</div>
-            <div class="mini-rates" id="goldSpotBox"></div>
-          </article>
-        </section>
-      </section>
-
-      <section class="page" id="page-silver" data-page="silver">
-        <div class="page-head">
-          <h1>Silver</h1>
-          <p>Swayam silver rates and market values.</p>
-          <div class="updated">Last updated: <span id="silverUpdated">—</span></div>
-        </div>
-
-        <section class="card stack">
-          <div class="section-title">Silver Rates</div>
-          <div class="rate-table-wrap">
-            <table class="rate-table">
-              <thead>
-                <tr>
-                  <th>PRODUCT</th>
-                  <th>BUY</th>
-                  <th>SELL</th>
-                  <th>HIGH</th>
-                  <th>LOW</th>
-                </tr>
-              </thead>
-              <tbody id="silverRatesBody"></tbody>
-            </table>
+          <div>
+            <div class="mini-title">Spot</div>
+            <div id="goldSpotTable"></div>
           </div>
-        </section>
-
-        <section class="stack-grid">
-          <article class="card mini-card">
-            <div class="section-title">Silver Future</div>
-            <div class="mini-rates" id="silverFutureBox"></div>
-          </article>
-          <article class="card mini-card">
-            <div class="section-title">Silver Spot</div>
-            <div class="mini-rates" id="silverSpotBox"></div>
-          </article>
-        </section>
-      </section>
-
-      <section class="page" id="page-coin" data-page="coin">
-        <div class="page-head">
-          <h1>Coin Rate</h1>
-          <p>Right Gold coin rates with swipe tabs.</p>
-          <div class="updated">Last updated: <span id="coinUpdated">—</span></div>
         </div>
+      </div>
+    </section>
 
-        <div class="coin-switch card">
-          <button class="switch-btn active" data-coin-tab="gold" type="button">Gold Coin</button>
-          <button class="switch-btn" data-coin-tab="silver" type="button">Silver Coin</button>
+    <section id="page-silver" class="page">
+      <div class="page-head">
+        <h1>Silver Page</h1>
+        <p>Swayam rates with silver product, future and spot values.</p>
+      </div>
+
+      <div class="stack">
+        <div class="stack-title">Silver Rates</div>
+        <div id="silverProductTable"></div>
+      </div>
+
+      <div class="stack">
+        <div class="stack-title">Silver Future &amp; Spot</div>
+        <div class="two-col">
+          <div>
+            <div class="mini-title">Future</div>
+            <div id="silverFutureTable"></div>
+          </div>
+          <div>
+            <div class="mini-title">Spot</div>
+            <div id="silverSpotTable"></div>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <section class="card stack">
-          <div class="section-title">Coin Prices</div>
-          <div class="coin-panel" id="coinGoldPanel"></div>
-          <div class="coin-panel hidden" id="coinSilverPanel"></div>
-        </section>
-      </section>
-    </main>
+    <section id="page-coin" class="page">
+      <div class="page-head">
+        <h1>Coin Page</h1>
+        <p>Right Gold coin rates for gold coin and silver coin products.</p>
+      </div>
 
-    <nav class="bottom-nav">
-      <button class="nav-btn active" data-page="gold" type="button">Gold</button>
-      <button class="nav-btn" data-page="silver" type="button">Silver</button>
-      <button class="nav-btn" data-page="coin" type="button">Coin</button>
-    </nav>
-  </div>
+      <div class="coin-tabs">
+        <button id="coinTabGold" class="coin-tab active" type="button">GOLD COIN</button>
+        <button id="coinTabSilver" class="coin-tab" type="button">SILVER COIN</button>
+      </div>
+
+      <div class="stack">
+        <div id="coinTable"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" data-page="gold" type="button">Gold</button>
+    <button class="nav-item" data-page="silver" type="button">Silver</button>
+    <button class="nav-item" data-page="coin" type="button">Coin</button>
+  </nav>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/app.js"></script>
+  <script src="app.js"></script>
 </body>
+
 </html>

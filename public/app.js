@@ -1,43 +1,44 @@
+/* ─── Socket ─────────────────────────────────────────────────────────────── */
 const socket = io({ transports: ['websocket', 'polling'] });
 
+/* ─── State ──────────────────────────────────────────────────────────────── */
 const state = {
-  snapshot: null,
+  data: null,
   currentPage: 'gold',
   coinTab: 'gold',
   pendingRender: false,
   prev: {
-    goldKarat: new Map(),
-    goldRates: new Map(),
-    goldFuture: new Map(),
-    goldSpot: new Map(),
-    silverRates: new Map(),
+    goldProducts: new Map(),
+    goldFuture:   new Map(),
+    goldSpot:     new Map(),
+    silverProducts: new Map(),
     silverFuture: new Map(),
-    silverSpot: new Map(),
-    coinGold: new Map(),
-    coinSilver: new Map(),
-  }
+    silverSpot:   new Map(),
+    coinGold:     new Map(),
+    coinSilver:   new Map(),
+  },
 };
 
+/* ─── Element references ─────────────────────────────────────────────────── */
 const el = {
-  statusDot: document.getElementById('statusDot'),
-  statusText: document.getElementById('statusText'),
-  goldUpdated: document.getElementById('goldUpdated'),
-  silverUpdated: document.getElementById('silverUpdated'),
-  coinUpdated: document.getElementById('coinUpdated'),
-  goldKaratGrid: document.getElementById('goldKaratGrid'),
-  goldRatesBody: document.getElementById('goldRatesBody'),
-  silverRatesBody: document.getElementById('silverRatesBody'),
-  goldFutureBox: document.getElementById('goldFutureBox'),
-  goldSpotBox: document.getElementById('goldSpotBox'),
-  silverFutureBox: document.getElementById('silverFutureBox'),
-  silverSpotBox: document.getElementById('silverSpotBox'),
-  coinGoldPanel: document.getElementById('coinGoldPanel'),
-  coinSilverPanel: document.getElementById('coinSilverPanel'),
-  navButtons: Array.from(document.querySelectorAll('.nav-btn')),
-  pages: Array.from(document.querySelectorAll('.page')),
-  coinSwitchButtons: Array.from(document.querySelectorAll('.switch-btn')),
+  statusDot:          document.getElementById('statusDot'),
+  statusText:         document.getElementById('statusText'),
+  lastUpdated:        document.getElementById('lastUpdated'),
+  goldKaratGrid:      document.getElementById('goldKaratGrid'),
+  goldProductTable:   document.getElementById('goldProductTable'),
+  goldFutureTable:    document.getElementById('goldFutureTable'),
+  goldSpotTable:      document.getElementById('goldSpotTable'),
+  silverProductTable: document.getElementById('silverProductTable'),
+  silverFutureTable:  document.getElementById('silverFutureTable'),
+  silverSpotTable:    document.getElementById('silverSpotTable'),
+  coinTable:          document.getElementById('coinTable'),
+  coinTabGold:        document.getElementById('coinTabGold'),
+  coinTabSilver:      document.getElementById('coinTabSilver'),
+  navItems:           Array.from(document.querySelectorAll('.nav-item')),
+  pages:              Array.from(document.querySelectorAll('.page')),
 };
 
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
 function num(v) {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(String(v).replace(/[^\d.-]/g, ''));
@@ -59,348 +60,363 @@ function timeFmt(iso) {
   });
 }
 
-function statusFrom(snapshot) {
-  const g = !!snapshot?.meta?.gopnathConnected;
-  const s = !!snapshot?.meta?.swayamConnected;
-  const r = !!snapshot?.meta?.rightgoldConnected;
-  const count = [g, s, r].filter(Boolean).length;
-  if (count === 3) return { text: 'Live', cls: 'live' };
-  if (count >= 1) return { text: 'Partial live', cls: 'warn' };
-  return { text: 'Disconnected', cls: 'down' };
-}
-
 function setText(node, value) {
   if (!node) return;
   const next = String(value ?? '—');
   if (node.textContent !== next) node.textContent = next;
 }
 
-function setPage(page) {
-  state.currentPage = page;
-  el.pages.forEach((p) => p.classList.toggle('active', p.dataset.page === page));
-  el.navButtons.forEach((b) => b.classList.toggle('active', b.dataset.page === page));
-}
-
-function setCoinTab(tab) {
-  state.coinTab = tab;
-  el.coinSwitchButtons.forEach((b) => b.classList.toggle('active', b.dataset.coinTab === tab));
-  el.coinGoldPanel.classList.toggle('hidden', tab !== 'gold');
-  el.coinSilverPanel.classList.toggle('hidden', tab !== 'silver');
-}
-
-function cardDir(current, previous) {
+function dir(current, previous) {
   const c = num(current);
   const p = num(previous);
   if (c === null || p === null || c === p) return '';
   return c > p ? 'up' : 'down';
 }
 
-function rowKey(row) {
-  return String(row?.name || row?.label || '').trim().toLowerCase();
+function itemKey(item) {
+  return String(item?.name || item?.label || item?.key || '').trim().toLowerCase();
 }
 
-function buildTableHead(columns) {
-  return `<thead><tr>${columns.map((c) => `<th>${c}</th>`).join('')}</tr></thead>`;
+/* ─── Karat grid (computed from master gold price) ────────────────────────── */
+const KARAT_FACTORS = [24, 22, 21, 20, 18, 14, 10, 9];
+
+function buildKarats(master) {
+  const base = num(master?.sell ?? master?.buy ?? master?.value);
+  return KARAT_FACTORS.map((k) => ({
+    label: `${k}K`,
+    note: k === 24 ? 'PURE' : 'LIVE',
+    rate: base !== null ? Math.round(base * (k / 24)) : null,
+    high: base !== null ? Math.round(base * (k / 24) * 1.006) : null,
+    low:  base !== null ? Math.round(base * (k / 24) * 0.994) : null,
+  }));
 }
 
-function ensureTable(container, columns, cls) {
-  let table = container.querySelector('table');
-  if (!table) {
-    table = document.createElement('table');
-    table.className = cls;
-    table.innerHTML = buildTableHead(columns) + '<tbody></tbody>';
-    container.innerHTML = '';
-    container.appendChild(table);
-  }
-  return table;
-}
-
-function patchTable(container, rows, columns, opts = {}) {
-  const { key = rowKey, rowClass = '', cells = [] } = opts;
-  const table = ensureTable(container, columns, opts.tableClass || 'rate-table');
-  const tbody = table.tBodies[0];
-  const existing = new Map(Array.from(tbody.children).map((tr) => [tr.dataset.key, tr]));
-  const nextRows = [];
-
-  rows.forEach((row) => {
-    const k = key(row);
-    let tr = existing.get(k);
-    if (!tr) {
-      tr = document.createElement('tr');
-      tr.dataset.key = k;
-      tr.innerHTML = columns.map(() => '<td></td>').join('');
-    }
-    if (rowClass) tr.className = rowClass;
-    cells.forEach((fn, idx) => {
-      const td = tr.children[idx];
-      if (td && typeof fn === 'function') fn(td, row, tr);
-    });
-    nextRows.push(tr);
-    existing.delete(k);
-  });
-
-  tbody.replaceChildren(...nextRows);
-}
-
-function renderKaratGrid(cards) {
-  const rows = cards || [];
-  const existing = new Map(Array.from(el.goldKaratGrid.querySelectorAll('.karat-card')).map((n) => [n.dataset.key, n]));
+function renderKaratGrid(master) {
+  const cards = buildKarats(master);
+  const existing = new Map(
+    Array.from(el.goldKaratGrid.querySelectorAll('.karat-card'))
+      .map((n) => [n.dataset.key, n])
+  );
   const next = [];
 
-  rows.forEach((card) => {
-    const key = String(card.label);
+  cards.forEach((card) => {
+    const key = card.label;
     let node = existing.get(key);
     if (!node) {
       node = document.createElement('article');
       node.className = 'karat-card';
       node.dataset.key = key;
       node.innerHTML = `
-        <div class="karat-label"><span class="karat-name"></span><span class="karat-note"></span></div>
-        <div class="karat-price"></div>
-        <div class="karat-foot"><span>LIVE RATE</span><span class="hl"></span></div>
+        <div class="karat-label">
+          <span class="karat-name"></span>
+          <span class="karat-note" style="font-size:.68rem;opacity:.7;font-weight:700"></span>
+        </div>
+        <div class="karat-value"></div>
+        <div class="karat-foot">
+          <span>H: <span class="karat-high"></span></span>
+          <span>L: <span class="karat-low"></span></span>
+        </div>
       `;
     }
-    const prev = state.prev.goldKarat.get(key) || {};
+    const prev = state.prev.goldProducts.get(key) || {};
     node.querySelector('.karat-name').textContent = card.label;
     node.querySelector('.karat-note').textContent = card.note || '';
-    const price = node.querySelector('.karat-price');
-    price.textContent = fmt(card.rate);
-    price.classList.remove('value-up', 'value-down');
-    const dir = cardDir(card.rate, prev.rate);
-    if (dir === 'up') price.classList.add('value-up');
-    if (dir === 'down') price.classList.add('value-down');
-    node.querySelector('.hl').textContent = `${fmt(card.high)} | ${fmt(card.low)}`;
+    const valueEl = node.querySelector('.karat-value');
+    valueEl.textContent = fmt(card.rate);
+    valueEl.classList.remove('value-up', 'value-down');
+    const d = dir(card.rate, prev.rate);
+    if (d === 'up')   valueEl.classList.add('value-up');
+    if (d === 'down') valueEl.classList.add('value-down');
+    node.querySelector('.karat-high').textContent = fmt(card.high);
+    node.querySelector('.karat-low').textContent  = fmt(card.low);
+    state.prev.goldProducts.set(key, { rate: card.rate });
     next.push(node);
     existing.delete(key);
-    state.prev.goldKarat.set(key, { rate: card.rate, high: card.high, low: card.low });
   });
 
   el.goldKaratGrid.replaceChildren(...next);
 }
 
-function renderMiniSeries(container, series, cacheMap, titleClass) {
-  const items = series || [];
-  if (!items.length) {
-    container.innerHTML = `<div class="mini-rate"><div><div class="mini-title">No data</div><div class="mini-meta">Waiting for feed</div></div><div class="mini-price">—</div></div>`;
-    return;
-  }
+/* ─── Rate-row table (products / future / spot) ─────────────────────────── */
+/*
+ * items: array of normalizeItem objects from server
+ *   { name, buy, sell, high, low, value }
+ */
+function renderRateTable(container, items, cacheMap, cols) {
+  const data = items || [];
 
-  const existing = new Map(Array.from(container.querySelectorAll('.mini-rate')).map((n) => [n.dataset.key, n]));
-  const next = [];
-
-  items.forEach((item) => {
-    const key = String(item.name || '').toLowerCase();
-    let node = existing.get(key);
-    if (!node) {
-      node = document.createElement('div');
-      node.className = 'mini-rate';
-      node.dataset.key = key;
-      node.innerHTML = `
-        <div>
-          <div class="mini-title"></div>
-          <div class="mini-meta"></div>
-        </div>
-        <div class="mini-price"></div>
-      `;
-    }
-    const prev = cacheMap.get(key) || {};
-    node.querySelector('.mini-title').textContent = item.name;
-    node.querySelector('.mini-meta').textContent = item.high !== null && item.low !== null ? `${fmt(item.high)} | ${fmt(item.low)}` : '';
-    const price = node.querySelector('.mini-price');
-    price.textContent = fmt(item.price ?? item.sell ?? item.buy);
-    price.classList.remove('chip-up', 'chip-down');
-    const dir = cardDir(item.price ?? item.sell ?? item.buy, prev.price ?? prev.sell ?? prev.buy);
-    if (dir === 'up') price.classList.add('chip-up');
-    if (dir === 'down') price.classList.add('chip-down');
-    next.push(node);
-    existing.delete(key);
-    cacheMap.set(key, {
-      price: item.price ?? item.sell ?? item.buy,
-      high: item.high,
-      low: item.low,
-    });
-  });
-
-  container.replaceChildren(...next);
-}
-
-function renderCoinTable(container, rows, cacheMap) {
-  const data = rows || [];
   if (!data.length) {
-    container.innerHTML = '<div class="mini-rate"><div><div class="mini-title">No coin data</div><div class="mini-meta">Waiting for feed</div></div><div class="mini-price">—</div></div>';
+    container.innerHTML = '<div class="empty">Waiting for data…</div>';
     return;
   }
 
-  const existing = new Map(Array.from(container.querySelectorAll('.coin-table tbody tr')).map((tr) => [tr.dataset.key, tr]));
+  const columns = cols || ['PRODUCT', 'BUY', 'SELL', 'HIGH', 'LOW'];
+  const isMini  = columns.length <= 3;
+
+  // Build wrapper once
+  let wrapper = container.querySelector('.rate-table');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.className = 'rate-table';
+    const headerCells = columns.map((c) => {
+      const cls = c === 'PRODUCT' ? 'rate-name' : 'rate-num';
+      return `<div class="rate-cell ${cls}">${c}</div>`;
+    }).join('');
+    wrapper.innerHTML = `<div class="rate-row header">${headerCells}</div>`;
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+  }
+
+  const existing = new Map(
+    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)'))
+      .map((r) => [r.dataset.key, r])
+  );
   const nextRows = [];
 
-  data.forEach((row) => {
-    const key = String(row.name || '').toLowerCase();
-    let tr = existing.get(key);
-    if (!tr) {
-      tr = document.createElement('tr');
-      tr.dataset.key = key;
-      tr.innerHTML = `
-        <td class="coin-product"></td>
-        <td class="coin-price"></td>
+  data.forEach((item) => {
+    const key = itemKey(item);
+    let row = existing.get(key);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'rate-row';
+      row.dataset.key = key;
+      if (isMini) {
+        row.innerHTML = `
+          <div class="rate-cell rate-name"></div>
+          <div class="rate-cell rate-num price"></div>
+          <div class="rate-cell rate-num" style="font-size:.8rem;opacity:.75">
+            H:<span class="hi"></span> L:<span class="lo"></span>
+          </div>
+        `;
+      } else {
+        row.innerHTML = `
+          <div class="rate-cell rate-name"></div>
+          <div class="rate-cell rate-num buy"></div>
+          <div class="rate-cell rate-num sell"></div>
+          <div class="rate-cell rate-num high"></div>
+          <div class="rate-cell rate-num low"></div>
+        `;
+      }
+    }
+
+    const prev = cacheMap.get(key) || {};
+    row.querySelector('.rate-name').textContent = item.name || item.label || key;
+
+    if (isMini) {
+      const priceVal = item.sell ?? item.buy ?? item.value;
+      const priceEl  = row.querySelector('.rate-num.price');
+      priceEl.textContent = fmt(priceVal);
+      priceEl.classList.remove('up', 'down');
+      const d = dir(priceVal, prev.price);
+      if (d === 'up')   priceEl.classList.add('up');
+      if (d === 'down') priceEl.classList.add('down');
+      row.querySelector('.hi').textContent = fmt(item.high);
+      row.querySelector('.lo').textContent = fmt(item.low);
+      cacheMap.set(key, { price: priceVal });
+    } else {
+      function applyCell(selector, val, prevVal) {
+        const cell = row.querySelector(selector);
+        if (!cell) return;
+        cell.textContent = fmt(val);
+        cell.classList.remove('up', 'down');
+        const d = dir(val, prevVal);
+        if (d === 'up')   cell.classList.add('up');
+        if (d === 'down') cell.classList.add('down');
+      }
+      applyCell('.buy',  item.buy,  prev.buy);
+      applyCell('.sell', item.sell, prev.sell);
+      applyCell('.high', item.high, prev.high);
+      applyCell('.low',  item.low,  prev.low);
+      cacheMap.set(key, { buy: item.buy, sell: item.sell, high: item.high, low: item.low });
+    }
+
+    nextRows.push(row);
+    existing.delete(key);
+  });
+
+  const header = wrapper.querySelector('.rate-row.header');
+  wrapper.replaceChildren(header, ...nextRows);
+}
+
+/* ─── Coin table ─────────────────────────────────────────────────────────── */
+function renderCoinTable(container, coins, cacheMap) {
+  const data = coins || [];
+
+  if (!data.length) {
+    container.innerHTML = '<div class="empty">Coin data loading… (scraped every 30 s)</div>';
+    return;
+  }
+
+  let wrapper = container.querySelector('.rate-table');
+  if (!wrapper) {
+    wrapper = document.createElement('div');
+    wrapper.className = 'rate-table';
+    wrapper.innerHTML = `
+      <div class="rate-row header">
+        <div class="rate-cell rate-name" style="flex:2">PRODUCT</div>
+        <div class="rate-cell rate-num">PRICE (₹)</div>
+      </div>
+    `;
+    container.innerHTML = '';
+    container.appendChild(wrapper);
+  }
+
+  const existing = new Map(
+    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)'))
+      .map((r) => [r.dataset.key, r])
+  );
+  const nextRows = [];
+
+  data.forEach((coin) => {
+    const key = String(coin.name || '').toLowerCase();
+    let row = existing.get(key);
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'rate-row';
+      row.dataset.key = key;
+      row.innerHTML = `
+        <div class="rate-cell rate-name" style="flex:2"></div>
+        <div class="rate-cell rate-num price"></div>
       `;
     }
     const prev = cacheMap.get(key) || {};
-    tr.querySelector('.coin-product').textContent = row.name;
-    const price = tr.querySelector('.coin-price');
-    price.textContent = `₹ ${fmt(row.price)}`;
-    price.classList.remove('chip-up', 'chip-down');
-    const dir = cardDir(row.price, prev.price);
-    if (dir === 'up') price.classList.add('chip-up');
-    if (dir === 'down') price.classList.add('chip-down');
-    nextRows.push(tr);
+    row.querySelector('.rate-name').textContent = coin.name;
+    const priceEl = row.querySelector('.rate-num.price');
+    priceEl.textContent = `₹ ${fmt(coin.price)}`;
+    priceEl.classList.remove('up', 'down');
+    const d = dir(coin.price, prev.price);
+    if (d === 'up')   priceEl.classList.add('up');
+    if (d === 'down') priceEl.classList.add('down');
+    cacheMap.set(key, { price: coin.price });
+    nextRows.push(row);
     existing.delete(key);
-    cacheMap.set(key, { price: row.price });
   });
 
-  let table = container.querySelector('table');
-  if (!table) {
-    table = document.createElement('table');
-    table.className = 'coin-table';
-    table.innerHTML = `<thead><tr><th>PRODUCT</th><th>PRICE</th></tr></thead><tbody></tbody>`;
-    container.innerHTML = '';
-    container.appendChild(table);
-  }
-  const tbody = table.tBodies[0];
-  tbody.replaceChildren(...nextRows);
+  const header = wrapper.querySelector('.rate-row.header');
+  wrapper.replaceChildren(header, ...nextRows);
 }
 
-function renderSnapshot(snapshot) {
-  if (!snapshot) return;
-  state.snapshot = snapshot;
+/* ─── Status chip ─────────────────────────────────────────────────────────── */
+function statusFrom(data) {
+  const g = !!data?.connected?.gopnath;
+  const s = !!data?.connected?.swayam;
+  const c = !!data?.connected?.coins;
+  const count = [g, s, c].filter(Boolean).length;
+  if (count === 3) return { text: 'Live',        cls: 'live' };
+  if (count >= 1)  return { text: 'Partial',     cls: 'live' };
+  return               { text: 'Disconnected', cls: 'offline' };
+}
 
-  const status = statusFrom(snapshot);
-  el.statusDot.className = `status-dot ${status.cls}`;
+/* ─── Main render ─────────────────────────────────────────────────────────── */
+function renderData(data) {
+  if (!data) return;
+  state.data = data;
+
+  // Status + timestamp
+  const status = statusFrom(data);
+  if (el.statusDot) el.statusDot.className = `status-dot ${status.cls}`;
   setText(el.statusText, status.text);
+  setText(el.lastUpdated, timeFmt(data.updatedAt));
 
-  setText(el.goldUpdated, timeFmt(snapshot.meta?.updatedAt));
-  setText(el.silverUpdated, timeFmt(snapshot.meta?.updatedAt));
-  setText(el.coinUpdated, timeFmt(snapshot.meta?.updatedAt));
+  // Gold karats (from master price)
+  renderKaratGrid(data.gold?.master);
 
-  renderKaratGrid(snapshot.gold?.karats || []);
+  // Gold products
+  renderRateTable(
+    el.goldProductTable,
+    data.gold?.products || [],
+    state.prev.goldProducts,
+    ['PRODUCT', 'BUY', 'SELL', 'HIGH', 'LOW']
+  );
 
-  patchTable(el.goldRatesBody, snapshot.gold?.rates || [], ['PRODUCT', 'BUY', 'SELL', 'HIGH', 'LOW'], {
-    tableClass: 'rate-table',
-    cells: [
-      (td, row) => { td.className = 'rate-name'; td.textContent = row.name; },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.goldRates.get(key) || {};
-        const dir = cardDir(row.buy, prev.buy);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.buy);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.goldRates.get(key) || {};
-        const dir = cardDir(row.sell, prev.sell);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.sell);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.goldRates.get(key) || {};
-        const dir = cardDir(row.high, prev.high);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.high);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.goldRates.get(key) || {};
-        const dir = cardDir(row.low, prev.low);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.low);
-        state.prev.goldRates.set(key, { buy: row.buy, sell: row.sell, high: row.high, low: row.low });
-      },
-    ],
-  });
+  // Gold future / spot
+  renderRateTable(el.goldFutureTable, data.gold?.future || [], state.prev.goldFuture, ['NAME', 'PRICE', 'H / L']);
+  renderRateTable(el.goldSpotTable,   data.gold?.spot   || [], state.prev.goldSpot,   ['NAME', 'PRICE', 'H / L']);
 
-  patchTable(el.silverRatesBody, snapshot.silver?.rates || [], ['PRODUCT', 'BUY', 'SELL', 'HIGH', 'LOW'], {
-    tableClass: 'rate-table',
-    cells: [
-      (td, row) => { td.className = 'rate-name'; td.textContent = row.name; },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.silverRates.get(key) || {};
-        const dir = cardDir(row.buy, prev.buy);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.buy);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.silverRates.get(key) || {};
-        const dir = cardDir(row.sell, prev.sell);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.sell);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.silverRates.get(key) || {};
-        const dir = cardDir(row.high, prev.high);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.high);
-      },
-      (td, row) => {
-        const key = rowKey(row);
-        const prev = state.prev.silverRates.get(key) || {};
-        const dir = cardDir(row.low, prev.low);
-        td.className = `rate-num ${dir === 'up' ? 'chip-up' : dir === 'down' ? 'chip-down' : ''}`;
-        td.textContent = fmt(row.low);
-        state.prev.silverRates.set(key, { buy: row.buy, sell: row.sell, high: row.high, low: row.low });
-      },
-    ],
-  });
+  // Silver products
+  renderRateTable(
+    el.silverProductTable,
+    data.silver?.products || [],
+    state.prev.silverProducts,
+    ['PRODUCT', 'BUY', 'SELL', 'HIGH', 'LOW']
+  );
 
-  renderMiniSeries(el.goldFutureBox, snapshot.gold?.future || [], state.prev.goldFuture);
-  renderMiniSeries(el.goldSpotBox, snapshot.gold?.spot || [], state.prev.goldSpot);
-  renderMiniSeries(el.silverFutureBox, snapshot.silver?.future || [], state.prev.silverFuture);
-  renderMiniSeries(el.silverSpotBox, snapshot.silver?.spot || [], state.prev.silverSpot);
+  // Silver future / spot
+  renderRateTable(el.silverFutureTable, data.silver?.future || [], state.prev.silverFuture, ['NAME', 'PRICE', 'H / L']);
+  renderRateTable(el.silverSpotTable,   data.silver?.spot   || [], state.prev.silverSpot,   ['NAME', 'PRICE', 'H / L']);
 
-  renderCoinTable(el.coinGoldPanel, snapshot.coins?.gold || [], state.prev.coinGold);
-  renderCoinTable(el.coinSilverPanel, snapshot.coins?.silver || [], state.prev.coinSilver);
+  // Coins — active tab only
+  const coinRows  = state.coinTab === 'gold' ? (data.coins?.gold || []) : (data.coins?.silver || []);
+  const coinCache = state.coinTab === 'gold' ? state.prev.coinGold : state.prev.coinSilver;
+  renderCoinTable(el.coinTable, coinRows, coinCache);
 }
 
-function scheduleRender(snapshot) {
-  state.snapshot = snapshot;
+function scheduleRender(data) {
+  state.data = data;
   if (state.pendingRender) return;
   state.pendingRender = true;
   requestAnimationFrame(() => {
     state.pendingRender = false;
-    renderSnapshot(state.snapshot);
+    renderData(state.data);
   });
 }
 
-el.navButtons.forEach((btn) => {
-  btn.addEventListener('click', () => setPage(btn.dataset.page));
-});
+/* ─── Navigation ─────────────────────────────────────────────────────────── */
+function setPage(page) {
+  state.currentPage = page;
+  el.pages.forEach((p) => p.classList.toggle('active', p.id === `page-${page}`));
+  el.navItems.forEach((b) => b.classList.toggle('active', b.dataset.page === page));
+}
 
-el.coinSwitchButtons.forEach((btn) => {
-  btn.addEventListener('click', () => setCoinTab(btn.dataset.coinTab));
-});
+function setCoinTab(tab) {
+  state.coinTab = tab;
+  el.coinTabGold.classList.toggle('active',   tab === 'gold');
+  el.coinTabSilver.classList.toggle('active', tab === 'silver');
+  if (state.data) {
+    const coinRows  = tab === 'gold' ? (state.data.coins?.gold || []) : (state.data.coins?.silver || []);
+    const coinCache = tab === 'gold' ? state.prev.coinGold : state.prev.coinSilver;
+    // Reset wrapper so table is rebuilt fresh for the new tab
+    el.coinTable.innerHTML = '';
+    renderCoinTable(el.coinTable, coinRows, coinCache);
+  }
+}
 
+/* ─── Socket events ──────────────────────────────────────────────────────── */
 socket.on('connect', () => {
-  const current = state.snapshot;
-  if (current) scheduleRender(current);
+  if (state.data) scheduleRender(state.data);
 });
 
-socket.on('snapshot', (snapshot) => {
-  scheduleRender(snapshot);
+// Server emits 'state' event
+socket.on('state', (data) => {
+  scheduleRender(data);
 });
 
 socket.on('disconnect', () => {
-  el.statusDot.className = 'status-dot down';
+  if (el.statusDot) el.statusDot.className = 'status-dot offline';
   setText(el.statusText, 'Disconnected');
 });
 
-fetch('/api/snapshot')
+/* ─── Event listeners ────────────────────────────────────────────────────── */
+el.navItems.forEach((btn) => {
+  btn.addEventListener('click', () => setPage(btn.dataset.page));
+});
+
+el.coinTabGold.addEventListener('click',   () => setCoinTab('gold'));
+el.coinTabSilver.addEventListener('click', () => setCoinTab('silver'));
+
+/* ─── Initial load via REST ──────────────────────────────────────────────── */
+fetch('/api/state')
   .then((res) => res.json())
-  .then((snapshot) => scheduleRender(snapshot))
+  .then((data) => scheduleRender(data))
   .catch(() => {});
 
+/* ─── Boot ───────────────────────────────────────────────────────────────── */
 setPage('gold');
 setCoinTab('gold');
+
+/* ─── Service Worker ─────────────────────────────────────────────────────── */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}

@@ -1,154 +1,118 @@
-const { chromium } = require('playwright');
+const axios = require('axios');
+const cheerio = require('cheerio');
 
-function parseNumber(text) {
-  if (text === null || text === undefined) return null;
-  const cleaned = String(text).replace(/[^\d.-]/g, '');
-  if (!cleaned) return null;
+const DEFAULT_COIN_URL =
+  process.env.RIGHTGOLD_COIN_URL ||
+  'https://chawlajewellers.com/coinrate-iframe';
+
+function normalize(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parsePrice(text) {
+  const cleaned = normalize(text).replace(/[^0-9.]/g, '');
   const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function normalize(text) {
-  return String(text || '').replace(/\s+/g, ' ').trim();
-}
+async function scrapeCoins() {
+  const { data } = await axios.get(DEFAULT_COIN_URL, {
+    timeout: 25000,
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      Referer: 'https://chawlajewellers.com/',
+    },
+  });
 
-async function clickByText(page, label) {
-  const candidates = [
-    page.getByText(label, { exact: true }),
-    page.locator(`button:has-text("${label}")`),
-    page.locator(`a:has-text("${label}")`),
-    page.locator(`li:has-text("${label}")`),
-    page.locator(`div:has-text("${label}")`),
-    page.locator(`span:has-text("${label}")`),
-  ];
+  const $ = cheerio.load(data);
+  const goldCoins = [];
+  const silverCoins = [];
+  const seen = new Set();
 
-  for (const locator of candidates) {
-    try {
-      if (await locator.first().count()) {
-        await locator.first().click({ timeout: 3000 });
-        return true;
-      }
-    } catch (_) {}
-  }
+  // Strategy 1: rows with class ligh-white (original selector)
+  $('tr.ligh-white').each((_, row) => {
+    const name = normalize($(row).find('h3').first().text()) ||
+                 normalize($(row).find('td').first().text());
+    const priceText = $(row).find('.product-rate .bgm, .bgm, .bgm.e').first().text();
+    const price = parsePrice(priceText);
 
-  try {
-    await page.evaluate((wanted) => {
-      const elements = Array.from(document.querySelectorAll('button,a,li,div,span'));
-      const el = elements.find((node) => (node.textContent || '').trim() === wanted);
-      if (el && typeof el.click === 'function') el.click();
-    }, label);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
+    if (!name || price === null) return;
 
-async function ensureVisible(page) {
-  await page.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
-  await page.waitForTimeout(4000);
-}
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
 
-async function extractRows(page, coinType) {
-  return page.evaluate((needle) => {
-    const rows = Array.from(document.querySelectorAll('tr'))
-      .filter((tr) => tr && tr.offsetParent !== null)
-      .map((tr) => {
-        const cells = Array.from(tr.querySelectorAll('td,th'))
-          .map((el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim())
-          .filter(Boolean);
-        const priceEl = tr.querySelector('.product-rate .bgm, .bgm.e, .bgm');
-        const price = priceEl ? (priceEl.textContent || priceEl.innerText || '').replace(/\s+/g, ' ').trim() : '';
-        return { cells, price };
-      })
-      .filter(({ cells, price }) => {
-        const joined = cells.join(' ').toUpperCase();
-        return joined.includes(needle) && /\d/.test(joined) && !!price && !/^PRODUCT\s+PRICE$/i.test(joined);
-      })
-      .map(({ cells, price }) => {
-        const name = cells.find((cell) => /COIN/i.test(cell) && !/^PRODUCT$/i.test(cell)) || cells[0] || '';
-        return { name: name.trim(), price: price.trim() };
-      })
-      .filter((row) => row.name && row.price);
+    const item = { name, price };
+    if (/silver/i.test(name)) {
+      silverCoins.push(item);
+    } else {
+      goldCoins.push(item);
+    }
+  });
 
-    const unique = [];
-    const seen = new Set();
-    for (const row of rows) {
-      const key = `${row.name}|${row.price}`;
-      if (seen.has(key)) continue;
+  // Strategy 2: generic table rows if Strategy 1 found nothing
+  if (!goldCoins.length && !silverCoins.length) {
+    $('table tr').each((_, row) => {
+      const cells = $(row).find('td');
+      if (cells.length < 2) return;
+
+      const name  = normalize(cells.eq(0).text());
+      const price = parsePrice(cells.eq(cells.length - 1).text()) ||
+                    parsePrice(cells.eq(1).text());
+
+      if (!name || price === null || !/coin/i.test(name)) return;
+
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
       seen.add(key);
-      unique.push(row);
-    }
-    return unique;
-  }, coinType.toUpperCase());
-}
 
-function parseRows(rows) {
-  return (rows || []).map((row) => ({
-    name: normalize(row.name),
-    price: parseNumber(row.price),
-  })).filter((row) => row.name && row.price !== null);
-}
-
-function createRightGoldCollector({ url, onResult, onError } = {}) {
-  let browser = null;
-  let launching = null;
-
-  async function ensureBrowser() {
-    if (browser) return browser;
-    if (launching) return launching;
-
-    launching = chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    }).then((b) => {
-      browser = b;
-      launching = null;
-      return browser;
-    }).catch((err) => {
-      launching = null;
-      throw err;
+      const item = { name, price };
+      if (/silver/i.test(name)) {
+        silverCoins.push(item);
+      } else {
+        goldCoins.push(item);
+      }
     });
-
-    return launching;
   }
 
-  async function scrape() {
-    const browserInstance = await ensureBrowser();
-    const page = await browserInstance.newPage({ viewport: { width: 1440, height: 1800 } });
+  // Strategy 3: elements containing price-like numbers near coin names
+  if (!goldCoins.length && !silverCoins.length) {
+    $('[class*="product"], [class*="coin"], [class*="rate"]').each((_, el) => {
+      const text = normalize($(el).text());
+      if (!/coin/i.test(text)) return;
 
-    try {
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await ensureVisible(page);
+      const nameMatch  = text.match(/([A-Za-z0-9 ]+coin[A-Za-z0-9 ]*)/i);
+      const priceMatch = text.match(/[\d,]+(?:\.\d+)?/g);
 
-      // Gold tab is usually shown first; still click it explicitly.
-      await clickByText(page, 'GOLD COIN');
-      await page.waitForTimeout(1000);
-      const goldRows = parseRows(await extractRows(page, 'GOLD COIN'));
+      if (!nameMatch || !priceMatch) return;
 
-      await clickByText(page, 'SILVER COIN');
-      await page.waitForTimeout(1000);
-      const silverRows = parseRows(await extractRows(page, 'SILVER COIN'));
+      const name  = normalize(nameMatch[0]);
+      const price = parsePrice(priceMatch[priceMatch.length - 1]);
 
-      const payload = { gold: goldRows, silver: silverRows };
-      onResult && onResult(payload);
-      return payload;
-    } catch (err) {
-      onError && onError(err);
-      throw err;
-    } finally {
-      try { await page.close(); } catch (_) {}
-    }
+      if (!name || price === null) return;
+      const key = name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const item = { name, price };
+      if (/silver/i.test(name)) {
+        silverCoins.push(item);
+      } else {
+        goldCoins.push(item);
+      }
+    });
   }
 
   return {
-    scrape,
-    stop: async () => {
-      if (browser) {
-        try { await browser.close(); } catch (_) {}
-        browser = null;
-      }
-    },
+    goldCoins,
+    silverCoins,
+    updatedAt: new Date().toISOString(),
   };
 }
 
-module.exports = { createRightGoldCollector };
+module.exports = { scrapeCoins };

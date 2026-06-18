@@ -1,27 +1,12 @@
 {
   "name": "Mahakali Jewellers",
   "short_name": "Mahakali",
+  "description": "Live gold, silver and coin rates",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "background_color": "#275467",
   "theme_color": "#275467",
+  "background_color": "#275467",
   "icons": [
-    {
-      "src": "/Media/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
-    },
-    {
-      "src": "/Media/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
-    },
-    {
-      "src": "/Media/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    },
     {
       "src": "/Media/android-chrome-192x192.png",
       "sizes": "192x192",

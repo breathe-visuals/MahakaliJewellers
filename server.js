@@ -179,27 +179,33 @@ function broadcast() {
   }, 300);
 }
 
+function visibleProducts(items) {
+  return items
+    .filter((it) => {
+      const d = it?.raw?.IsDisplay;
+      return d === undefined || d === null || String(d).toLowerCase() === 'true';
+    })
+    .map((it) => ({
+      ...it,
+      buy: it.bid,
+      sell: it.ask ?? it.bid,
+    }))
+    .filter((it) => it.name);
+}
+
 function updateGold(payload) {
   const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
   if (!items.length) return;
 
   state.gold.all = items;
 
-  // Karat calculation base = REFF ONLY L rate
   state.gold.master =
     bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']) ||
     bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']) ||
     items[0] ||
     null;
 
-  // Exact 3 products as specified
-  const chosen = [
-    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']),
-    bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']),
-    bestMatch(items, ['REFF ONLY IMP', 'GOLD REFF ONLY IMP', 'REFF ONLY', 'GOLD REFF'])
-  ].filter(Boolean);
-
-  state.gold.products = chosen.length ? chosen : items.slice(0, 3);
+  state.gold.products = visibleProducts(items);
   state.gold.future = pickByRegex(items, /(future|next|gold next|goldnext|gold future)/i);
   state.gold.spot = pickByRegex(items, /(spot|inr spot|inrspot|xauusd|xau usd)/i);
 
@@ -211,20 +217,13 @@ function updateSilver(payload) {
   if (!items.length) return;
 
   state.silver.all = items;
+
   state.silver.master =
     bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS', '999 SILVER RTGS']) ||
     items[0] ||
     null;
 
-  const chosen = [
-    bestMatch(items, ['98.S REF+GST', '98.S REF GST']),
-    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS', '999 SILVER RTGS']),
-    bestMatch(items, ['SILVER 999+GST', '999 SILVER+GST', 'SILVER 999']),
-    bestMatch(items, ['SILVER PETI RTGS', 'PETI RTGS']),
-    bestMatch(items, ['SILVER REFF', 'SILVER REFF L', 'SILVER REFF ONLY L'])
-  ].filter(Boolean);
-
-  state.silver.products = chosen.length ? chosen : items.slice(0, 4);
+  state.silver.products = visibleProducts(items);
   state.silver.future = pickByRegex(items, /(future|next|silver next|silvernext)/i);
   state.silver.spot = pickByRegex(items, /(spot|inr spot|inrspot|xagusd|xag usd)/i);
 

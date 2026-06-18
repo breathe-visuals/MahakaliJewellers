@@ -1,37 +1,60 @@
 # Mahakali Jewellers Live Rate Web App
 
-A Render-ready full stack live bullion website based on the Dharamraj Silver Arts architecture.
+This project is a Render-ready live rate dashboard with three pages:
 
-## What this app does
-- Pulls gold live rates from Gopnath
-- Pulls silver live rates from Swayam
-- Pulls coin rates from Right Gold
-- Calculates 24K, 22K, 21K, 20K, 18K, 14K, 10K and 9K from the master gold rate
-- Keeps provider sources hidden from the frontend
+- Gold
+- Silver
+- Coin
+
+It uses a hidden relay backend so visitors only see your Mahakali domain.
 
 ## Run locally
+
 ```bash
 npm install
 npm start
 ```
 
-Open:
-`http://localhost:3000`
+Then open `http://localhost:3000`.
+
+## Render settings
+
+- Service type: Web Service
+- Runtime: Node
+- Build command: `npm install`
+- Start command: `node server.js`
+- Node version: `20.x`
 
 ## Environment variables
-You can run with defaults first, then customize if needed:
 
-- `PORT` = server port
-- `GOPNATH_SOCKET_URL` = provider socket URL
-- `GOPNATH_ROOM` = provider room name
-- `SWAYAM_SOCKET_URL` = provider socket URL
-- `SWAYAM_ROOM` = provider room name
-- `RIGHTGOLD_URL` = Right Gold live-rate page
-- `RIGHTGOLD_POLL_MS` = polling interval in milliseconds
-- `MARKET_SOURCE` = `gopnath` or `swayam`
-- `ENABLE_DEMO_FALLBACK` = `true` to show sample values when feeds are offline
+Optional overrides:
+
+- `PORT` — Render sets this automatically
+- `GOPNATH_SOCKET_URL`
+- `GOPNATH_ROOM`
+- `SWAYAM_SOCKET_URL`
+- `SWAYAM_ROOM`
+- `RIGHTGOLD_URL`
+- `SOURCE_REFRESH_MS`
+
+## Media folder
+
+Put all favicons, logo files, manifest, and app icons inside `Media/`.
+
+Suggested files:
+
+- `favicon.ico`
+- `favicon-16x16.png`
+- `favicon-32x32.png`
+- `apple-touch-icon.png`
+- `android-chrome-192x192.png`
+- `android-chrome-512x512.png`
+- `site.webmanifest`
+- your logo image
 
 ## Notes
-- The frontend only talks to your own server.
-- Provider names are not shown to users.
-- The `Media/` folder is where you can place your logo and favicons.
+
+- Gold prices are calculated from the `IMP GOLD RTGS` base rate.
+- Silver uses the Swayam feed.
+- Coin prices are pulled from Right Gold coin-rate content and shown on the coin page.
+- The frontend uses batched DOM updates to reduce jerking.

@@ -1,139 +1,105 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#003336" />
+  <meta name="theme-color" content="#6f145d" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="description" content="Mahakali Jewellers live bullion rates — gold, silver, coins, spot, and future updates in real time." />
-  <title>Mahakali Jewellers – Live Rates</title>
-
-  <link rel="icon" href="Media/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" sizes="32x32" href="Media/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="Media/favicon-16x16.png" />
-  <link rel="apple-touch-icon" href="Media/apple-touch-icon.png" />
-  <link rel="manifest" href="Media/site.webmanifest" />
-
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
+  <title>Mahakali Jewellers — Live Rates</title>
+  <meta name="description" content="Mahakali Jewellers live gold, silver, and coin rates." />
   <link rel="stylesheet" href="styles.css?v=1" />
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-inner">
-      <img src="Media/mahakali-logo.png" alt="Mahakali Jewellers" class="header-logo" />
+  <div class="bg-pattern" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-mark">M</div>
+      <div class="brand-copy">
+        <div class="brand-name">Mahakali Jewellers</div>
+        <div class="brand-sub">
+          <span id="connectionPill" class="pill pill-warn">Connecting…</span>
+          <span id="updatedText">Last updated —</span>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="page">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Live bullion dashboard</p>
-        <h1>Mahakali Jewellers</h1>
-        <p class="hero-sub">Real-time gold, silver, coin, spot, and future rates.</p>
+  <main class="shell">
+    <section class="page active" id="page-gold" data-page="gold">
+      <div class="page-title-row">
+        <h1>Gold Page</h1>
+        <p>Gopnath master rate → 24K to 9K</p>
       </div>
-      <div class="hero-status">
-        <div class="status-chip"><span id="status" class="status-dot connecting"></span><span>Connection</span></div>
-        <div class="updated-card">
-          <span class="label">Last updated</span>
-          <strong id="lastUpdated">—</strong>
-        </div>
-      </div>
-    </section>
 
-    <section class="section">
-      <div class="section-label">
-        <span class="section-title">Gold Rates</span>
-        <div class="connected-badges">
-          <span class="conn-pill" data-connected="gopnath">Live</span>
+      <section class="panel stack-panel">
+        <div class="panel-head">
+          <h2>Karat Rates</h2>
+          <span class="mini-note">Liverate | high | low</span>
         </div>
-      </div>
-      <article class="rate-card">
-        <div class="card-header">
-          <span class="metal-badge gold-badge">24K to 9K</span>
-          <span class="live-pill"><span class="live-dot"></span>Live</span>
-        </div>
-        <div class="table-wrap" id="goldKaratBox"><p class="empty-msg">Connecting…</p></div>
-      </article>
-    </section>
-
-    <section class="grid-2">
-      <section class="section">
-        <div class="section-label">
-          <span class="section-title">Gold Master</span>
-        </div>
-        <article class="rate-card">
-          <div class="table-wrap" id="goldBaseBox"><p class="empty-msg">Connecting…</p></div>
-        </article>
+        <div id="goldKaratGrid" class="karat-grid"></div>
       </section>
 
-      <section class="section">
-        <div class="section-label">
-          <span class="section-title">Silver Products</span>
-          <div class="connected-badges">
-            <span class="conn-pill" data-connected="swayam">Live</span>
-          </div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Reference Stack</h2>
+          <span class="mini-note">IMP GOLD RTGS · GOLD REFF · GOLD REFF L</span>
         </div>
-        <article class="rate-card">
-          <div class="table-wrap" id="silverProductsBox"><p class="empty-msg">Connecting…</p></div>
-        </article>
+        <div id="goldRefTable" class="mini-table"></div>
       </section>
     </section>
 
-    <section class="section">
-      <div class="section-label">
-        <span class="section-title">Coin Rates</span>
-        <div class="connected-badges">
-          <span class="conn-pill" data-connected="rightgold">Live</span>
-        </div>
+    <section class="page" id="page-silver" data-page="silver">
+      <div class="page-title-row">
+        <h1>Silver Page</h1>
+        <p>Swayam live stack</p>
       </div>
-      <article class="rate-card">
-        <div class="table-wrap" id="coinBox"><p class="empty-msg">Connecting…</p></div>
-      </article>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Silver Reference Stack</h2>
+          <span class="mini-note">IMP GOLD RTGS · GOLD REFF · GOLD REFF L · 925 SILVER ORNA</span>
+        </div>
+        <div id="silverStack" class="vertical-stack"></div>
+      </section>
     </section>
 
-    <section class="section">
-      <div class="section-label">
-        <span class="section-title">Market Rates</span>
-        <div class="slider-dots" aria-hidden="true">
-          <span class="dot active"></span>
-          <span class="dot"></span>
+    <section class="page" id="page-coin" data-page="coin">
+      <div class="page-title-row">
+        <h1>Coin Page</h1>
+        <p>Right Gold coin rate</p>
+      </div>
+
+      <div class="segmented" role="tablist" aria-label="Coin Type">
+        <button class="seg-btn active" data-coin-tab="gold" type="button">GOLD COIN</button>
+        <button class="seg-btn" data-coin-tab="silver" type="button">SILVER COIN</button>
+      </div>
+
+      <section class="panel coin-panel">
+        <div class="panel-head">
+          <h2 id="coinTitle">Gold Coin</h2>
+          <span class="mini-note">Swipe left/right or tap buttons</span>
         </div>
-      </div>
-
-      <div class="slider-track" id="rateSlider">
-        <section class="slider-card">
-          <div class="card-header">
-            <h2 class="card-title">Future Rates</h2>
-            <span class="live-pill"><span class="live-dot"></span>Live</span>
-          </div>
-          <div class="table-wrap" id="futureBox"><p class="empty-msg">Connecting…</p></div>
-        </section>
-
-        <section class="slider-card">
-          <div class="card-header">
-            <h2 class="card-title">Spot Rates</h2>
-            <span class="live-pill"><span class="live-dot"></span>Live</span>
-          </div>
-          <div class="table-wrap" id="spotBox"><p class="empty-msg">Connecting…</p></div>
-        </section>
-      </div>
+        <div id="coinList" class="coin-list"></div>
+      </section>
     </section>
   </main>
 
-  <footer class="site-footer">
-    <p>All rates are reference only.</p>
-  </footer>
+  <nav class="bottom-nav" aria-label="Primary">
+    <button class="nav-btn active" data-page-btn="gold" type="button">
+      <span>Gold</span>
+    </button>
+    <button class="nav-btn" data-page-btn="silver" type="button">
+      <span>Silver</span>
+    </button>
+    <button class="nav-btn" data-page-btn="coin" type="button">
+      <span>Coin</span>
+    </button>
+  </nav>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="app.js?v=1"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
-    }
-  </script>
 </body>
 </html>

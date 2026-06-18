@@ -179,53 +179,53 @@ function broadcast() {
   }, 300);
 }
 
-function visibleProducts(items) {
-  return items
-    .filter((it) => {
-      const d = it?.raw?.IsDisplay;
-      return d === undefined || d === null || String(d).toLowerCase() === 'true';
-    })
-    .map((it) => ({
-      ...it,
-      buy: it.bid,
-      sell: it.ask ?? it.bid,
-    }))
-    .filter((it) => it.name);
-}
-
 function updateGold(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
+  const items = normalizeArray(payload).map(normalizeItem).filter(it => it.name);
   if (!items.length) return;
 
   state.gold.all = items;
 
+  // Karat base = 999 IMP RTGS
   state.gold.master =
-    bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']) ||
     bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']) ||
-    items[0] ||
-    null;
+    items[0] || null;
 
-  state.gold.products = visibleProducts(items);
-  state.gold.future = pickByRegex(items, /(future|next|gold next|goldnext|gold future)/i);
-  state.gold.spot = pickByRegex(items, /(spot|inr spot|inrspot|xauusd|xau usd)/i);
+  // Exact 3 products
+  state.gold.products = [
+    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']),
+    bestMatch(items, ['REFF ONLY L',  'GOLD REFF L',   'REFF L']),
+    bestMatch(items, ['REFF ONLY IMP','GOLD REFF ONLY IMP', 'REFF ONLY', 'GOLD REFF'])
+  ].filter(Boolean);
+
+  if (!state.gold.products.length) state.gold.products = items.slice(0, 3);
+
+  state.gold.future = pickByRegex(items, /(future|next|goldnext|gold next)/i);
+  state.gold.spot   = pickByRegex(items, /(spot|inrspot|inr spot)/i);
 
   broadcast();
 }
 
 function updateSilver(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
+  const items = normalizeArray(payload).map(normalizeItem).filter(it => it.name);
   if (!items.length) return;
 
   state.silver.all = items;
-
   state.silver.master =
-    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS', '999 SILVER RTGS']) ||
-    items[0] ||
-    null;
+    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS']) ||
+    items[0] || null;
 
-  state.silver.products = visibleProducts(items);
-  state.silver.future = pickByRegex(items, /(future|next|silver next|silvernext)/i);
-  state.silver.spot = pickByRegex(items, /(spot|inr spot|inrspot|xagusd|xag usd)/i);
+  // Exact 4 products
+  state.silver.products = [
+    bestMatch(items, ['98.S REF+GST',   '98.S REF GST',   '98S REF GST']),
+    bestMatch(items, ['98.S RTGS',      'IMP SILVER RTGS','SILVER RTGS']),
+    bestMatch(items, ['SILVER 999+GST', '999 SILVER+GST', 'SILVER 999']),
+    bestMatch(items, ['SILVER PETI RTGS','PETI RTGS',     'SILVER PETI'])
+  ].filter(Boolean);
+
+  if (!state.silver.products.length) state.silver.products = items.slice(0, 4);
+
+  state.silver.future = pickByRegex(items, /(future|next|silvernext|silver next)/i);
+  state.silver.spot   = pickByRegex(items, /(spot|inrspot|inr spot)/i);
 
   broadcast();
 }

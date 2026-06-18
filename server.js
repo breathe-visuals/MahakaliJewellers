@@ -288,7 +288,7 @@ createRightGoldCollector({
   onCoins: updateCoins
 });
 
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/Media', express.static(path.join(__dirname, 'Media')));
 
 app.get('/health', (req, res) => {
@@ -314,7 +314,7 @@ app.get('/api/coins', (req, res) => {
 });
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 io.on('connection', (socket) => {

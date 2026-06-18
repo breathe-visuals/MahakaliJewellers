@@ -154,9 +154,14 @@ function publicState() {
   };
 }
 
+let emitTimer = null;
 function emitState() {
   state.updatedAt = new Date().toISOString();
-  io.emit('state', publicState());
+  if (emitTimer) return; // throttle: max 1 emit per 800ms
+  emitTimer = setTimeout(() => {
+    emitTimer = null;
+    io.emit('state', publicState());
+  }, 800);
 }
 
 function categorizeGold(items) {
@@ -350,6 +355,15 @@ app.get('/api/coins', (req, res) => {
     silver: state.coins.silver,
     error: state.errors.coins
   });
+});
+
+app.get('/api/debug/coins', async (req, res) => {
+  try {
+    const result = await scrapeCoins();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.json({ ok: false, error: err?.message });
+  }
 });
 
 app.get('*', (req, res) => {

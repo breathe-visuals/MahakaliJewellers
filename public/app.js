@@ -6,7 +6,8 @@ const state = {
   data: null,
   currentPage: 'gold',
   coinTab: 'gold',
-  pendingRender: false,
+  renderTimer: null,
+  lastRender: 0,
   prev: {
     goldKarat: new Map(),
     goldProducts: new Map(),
@@ -39,6 +40,23 @@ const el = {
   pages: Array.from(document.querySelectorAll('.page')),
 };
 
+/* ─── Throttled render (max once per second) ──────────────────────────────── */
+const RENDER_INTERVAL = 1000; // ms
+
+function scheduleRender(data) {
+  state.data = data;
+  if (state.renderTimer) return; // already pending
+
+  const now = Date.now();
+  const wait = Math.max(0, RENDER_INTERVAL - (now - state.lastRender));
+
+  state.renderTimer = setTimeout(() => {
+    state.renderTimer = null;
+    state.lastRender = Date.now();
+    renderData(state.data);
+  }, wait);
+}
+
 /* ─── Utilities ───────────────────────────────────────────────────────────── */
 function num(v) {
   if (v === null || v === undefined || v === '') return null;
@@ -67,22 +85,65 @@ function setText(node, value) {
   if (node.textContent !== next) node.textContent = next;
 }
 
-function priceDir(current, previous) {
-  const c = num(current);
-  const p = num(previous);
+function priceDir(cur, prev) {
+  const c = num(cur), p = num(prev);
   if (c === null || p === null || c === p) return '';
   return c > p ? 'up' : 'down';
 }
 
-function applyDir(el2, val, prevVal, ...extraClasses) {
-  const d = priceDir(val, prevVal);
-  el2.classList.remove('up', 'down');
-  if (d) el2.classList.add(d);
-  return d;
-}
-
 function itemKey(item) {
   return String(item?.name || item?.label || item?.key || '').trim().toLowerCase();
+}
+
+/* ─── Stable DOM helpers ──────────────────────────────────────────────────── */
+// Update cell in-place; only touch the DOM when value or direction changed.
+function patchCell(cell, val, prevVal) {
+  const d = priceDir(val, prevVal);
+  const text = fmt(val);
+  if (cell.textContent !== text) cell.textContent = text;
+  const wasUp = cell.classList.contains('up');
+  const wasDown = cell.classList.contains('down');
+  const isUp = d === 'up', isDown = d === 'down';
+  if (wasUp !== isUp) cell.classList.toggle('up', isUp);
+  if (wasDown !== isDown) cell.classList.toggle('down', isDown);
+}
+
+// Ensure a wrapper div exists in container; returns [wrapper, isNew]
+function ensureWrapper(container, cls, headerHTML) {
+  let w = container.querySelector(`.${cls}`);
+  if (!w) {
+    w = document.createElement('div');
+    w.className = cls;
+    w.innerHTML = headerHTML;
+    container.innerHTML = '';
+    container.appendChild(w);
+    return [w, true];
+  }
+  return [w, false];
+}
+
+// Sync DOM rows to match `keys` order, reusing existing row nodes.
+// Creates new rows via `createRow(key)` if needed.
+// Only calls replaceChildren when the set/order of keys actually changes.
+function syncRows(wrapper, keys, createRow) {
+  const existing = new Map(
+    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)')).map((r) => [r.dataset.key, r])
+  );
+
+  // Check if update needed (fast path: same keys in same order)
+  const current = Array.from(wrapper.querySelectorAll('.rate-row:not(.header)')).map((r) => r.dataset.key);
+  const same = current.length === keys.length && keys.every((k, i) => k === current[i]);
+  if (same) return (key) => existing.get(key);
+
+  const header = wrapper.querySelector('.rate-row.header');
+  const nextRows = keys.map((key) => {
+    if (existing.has(key)) return existing.get(key);
+    return createRow(key);
+  });
+  wrapper.replaceChildren(header, ...nextRows);
+
+  const map = new Map(nextRows.map((r) => [r.dataset.key, r]));
+  return (key) => map.get(key);
 }
 
 /* ─── Karat grid ──────────────────────────────────────────────────────────── */
@@ -99,242 +160,197 @@ function buildKarats(master) {
   }));
 }
 
-function renderKaratGrid(master) {
-  const cards = buildKarats(master);
-  const existing = new Map(
-    Array.from(el.goldKaratGrid.querySelectorAll('.karat-card')).map((n) => [n.dataset.key, n])
-  );
-  const next = [];
-
-  cards.forEach((card) => {
-    const key = card.label;
-    let node = existing.get(key);
-    if (!node) {
-      node = document.createElement('article');
-      node.className = 'karat-card';
-      node.dataset.key = key;
-      node.innerHTML = `
-        <div class="karat-label">
-          <span class="karat-name"></span>
-          <span class="karat-note" style="font-size:.68rem;opacity:.7;font-weight:700"></span>
-        </div>
-        <div class="karat-value"></div>
-        <div class="karat-foot">
-          <span>H: <span class="karat-high"></span></span>
-          <span>L: <span class="karat-low"></span></span>
-        </div>`;
-    }
-    const prev = state.prev.goldKarat.get(key) || {};
-    node.querySelector('.karat-name').textContent = card.label;
-    node.querySelector('.karat-note').textContent = card.note || '';
-    const valueEl = node.querySelector('.karat-value');
-    valueEl.textContent = fmt(card.rate);
-    valueEl.classList.remove('value-up', 'value-down');
-    const d = priceDir(card.rate, prev.rate);
-    if (d === 'up') valueEl.classList.add('value-up');
-    if (d === 'down') valueEl.classList.add('value-down');
-    node.querySelector('.karat-high').textContent = fmt(card.high);
-    node.querySelector('.karat-low').textContent = fmt(card.low);
-    state.prev.goldKarat.set(key, { rate: card.rate });
-    next.push(node);
-    existing.delete(key);
-  });
-
-  el.goldKaratGrid.replaceChildren(...next);
+function createKaratCard(key) {
+  const node = document.createElement('article');
+  node.className = 'karat-card';
+  node.dataset.key = key;
+  node.innerHTML = `
+    <div class="karat-label">
+      <span class="karat-name"></span>
+      <span class="karat-note" style="font-size:.68rem;opacity:.7;font-weight:700"></span>
+    </div>
+    <div class="karat-value"></div>
+    <div class="karat-foot">
+      <span>H: <span class="karat-high"></span></span>
+      <span>L: <span class="karat-low"></span></span>
+    </div>`;
+  return node;
 }
 
-/* ─── Generic product table (5-col: name buy sell high low) ─────────────── */
-function ensureProductWrapper(container) {
-  let w = container.querySelector('.rate-table');
-  if (!w) {
-    w = document.createElement('div');
-    w.className = 'rate-table';
-    w.innerHTML = `
-      <div class="rate-row header">
-        <div class="rate-cell rate-name">PRODUCT</div>
-        <div class="rate-cell rate-num">BUY</div>
-        <div class="rate-cell rate-num">SELL</div>
-        <div class="rate-cell rate-num">HIGH</div>
-        <div class="rate-cell rate-num">LOW</div>
-      </div>`;
-    container.innerHTML = '';
-    container.appendChild(w);
+function renderKaratGrid(master) {
+  const cards = buildKarats(master);
+  const keys = cards.map((c) => c.label);
+
+  // Sync card nodes
+  const existingMap = new Map(
+    Array.from(el.goldKaratGrid.querySelectorAll('.karat-card')).map((n) => [n.dataset.key, n])
+  );
+  const currentKeys = Array.from(el.goldKaratGrid.querySelectorAll('.karat-card')).map((n) => n.dataset.key);
+  const same = currentKeys.length === keys.length && keys.every((k, i) => k === currentKeys[i]);
+
+  let getNode;
+  if (!same) {
+    const nodes = keys.map((k) => existingMap.get(k) || createKaratCard(k));
+    el.goldKaratGrid.replaceChildren(...nodes);
+    getNode = (k) => nodes[keys.indexOf(k)];
+  } else {
+    getNode = (k) => existingMap.get(k);
   }
-  return w;
+
+  cards.forEach((card) => {
+    const node = getNode(card.label);
+    if (!node) return;
+    const prev = state.prev.goldKarat.get(card.label) || {};
+
+    setText(node.querySelector('.karat-name'), card.label);
+    setText(node.querySelector('.karat-note'), card.note || '');
+    setText(node.querySelector('.karat-high'), fmt(card.high));
+    setText(node.querySelector('.karat-low'), fmt(card.low));
+
+    const valueEl = node.querySelector('.karat-value');
+    const text = fmt(card.rate);
+    const d = priceDir(card.rate, prev.rate);
+    if (valueEl.textContent !== text) valueEl.textContent = text;
+    const wasUp = valueEl.classList.contains('value-up');
+    const wasDown = valueEl.classList.contains('value-down');
+    if (wasUp !== (d === 'up')) valueEl.classList.toggle('value-up', d === 'up');
+    if (wasDown !== (d === 'down')) valueEl.classList.toggle('value-down', d === 'down');
+
+    state.prev.goldKarat.set(card.label, { rate: card.rate });
+  });
+}
+
+/* ─── Product table (5-col) ───────────────────────────────────────────────── */
+const PRODUCT_HEADER = `
+  <div class="rate-row header">
+    <div class="rate-cell rate-name">PRODUCT</div>
+    <div class="rate-cell rate-num">BUY</div>
+    <div class="rate-cell rate-num">SELL</div>
+    <div class="rate-cell rate-num">HIGH</div>
+    <div class="rate-cell rate-num">LOW</div>
+  </div>`;
+
+function createProductRow(key) {
+  const row = document.createElement('div');
+  row.className = 'rate-row';
+  row.dataset.key = key;
+  row.innerHTML = `
+    <div class="rate-cell rate-name"></div>
+    <div class="rate-cell rate-num buy"></div>
+    <div class="rate-cell rate-num sell"></div>
+    <div class="rate-cell rate-num high"></div>
+    <div class="rate-cell rate-num low"></div>`;
+  return row;
 }
 
 function renderProductTable(container, items, cacheMap) {
-  if (!items || !items.length) {
-    // Don't destroy existing rows; just show placeholder if truly empty
-    const w = container.querySelector('.rate-table');
-    if (!w) container.innerHTML = '<div class="empty">Waiting for data…</div>';
-    return;
-  }
+  if (!items || !items.length) return;
 
-  const wrapper = ensureProductWrapper(container);
-  const existing = new Map(
-    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)')).map((r) => [r.dataset.key, r])
-  );
-  const nextRows = [];
+  const [wrapper] = ensureWrapper(container, 'rate-table prod-tbl', PRODUCT_HEADER);
+  const keys = items.map(itemKey);
+  const getRow = syncRows(wrapper, keys, createProductRow);
 
   items.forEach((item) => {
     const key = itemKey(item);
-    let row = existing.get(key);
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'rate-row';
-      row.dataset.key = key;
-      row.innerHTML = `
-        <div class="rate-cell rate-name"></div>
-        <div class="rate-cell rate-num buy"></div>
-        <div class="rate-cell rate-num sell"></div>
-        <div class="rate-cell rate-num high"></div>
-        <div class="rate-cell rate-num low"></div>`;
-    }
+    const row = getRow(key);
+    if (!row) return;
     const prev = cacheMap.get(key) || {};
-    row.querySelector('.rate-name').textContent = item.name || item.label || key;
 
-    const buyEl  = row.querySelector('.buy');
-    const sellEl = row.querySelector('.sell');
-    const highEl = row.querySelector('.high');
-    const lowEl  = row.querySelector('.low');
-
-    applyDir(buyEl,  item.buy,  prev.buy);
-    applyDir(sellEl, item.sell, prev.sell);
-    applyDir(highEl, item.high, prev.high);
-    applyDir(lowEl,  item.low,  prev.low);
-
-    buyEl.textContent  = fmt(item.buy);
-    sellEl.textContent = fmt(item.sell);
-    highEl.textContent = fmt(item.high);
-    lowEl.textContent  = fmt(item.low);
+    setText(row.querySelector('.rate-name'), item.name || key);
+    patchCell(row.querySelector('.buy'),  item.buy,  prev.buy);
+    patchCell(row.querySelector('.sell'), item.sell, prev.sell);
+    patchCell(row.querySelector('.high'), item.high, prev.high);
+    patchCell(row.querySelector('.low'),  item.low,  prev.low);
 
     cacheMap.set(key, { buy: item.buy, sell: item.sell, high: item.high, low: item.low });
-    nextRows.push(row);
-    existing.delete(key);
   });
-
-  const header = wrapper.querySelector('.rate-row.header');
-  wrapper.replaceChildren(header, ...nextRows);
 }
 
-/* ─── Mini series table (3-col: name price h/l) ──────────────────────────── */
-function ensureMiniWrapper(container) {
-  let w = container.querySelector('.rate-table');
-  if (!w) {
-    w = document.createElement('div');
-    w.className = 'rate-table';
-    w.innerHTML = `
-      <div class="rate-row header">
-        <div class="rate-cell rate-name">NAME</div>
-        <div class="rate-cell rate-num">PRICE</div>
-        <div class="rate-cell rate-num" style="font-size:.8rem">H / L</div>
-      </div>`;
-    container.innerHTML = '';
-    container.appendChild(w);
-  }
-  return w;
+/* ─── Mini table (3-col: name price h/l) ─────────────────────────────────── */
+const MINI_HEADER = `
+  <div class="rate-row header">
+    <div class="rate-cell rate-name">NAME</div>
+    <div class="rate-cell rate-num">PRICE</div>
+    <div class="rate-cell rate-num" style="font-size:.8rem">H / L</div>
+  </div>`;
+
+function createMiniRow(key) {
+  const row = document.createElement('div');
+  row.className = 'rate-row';
+  row.dataset.key = key;
+  row.innerHTML = `
+    <div class="rate-cell rate-name"></div>
+    <div class="rate-cell rate-num price"></div>
+    <div class="rate-cell rate-num hl" style="font-size:.8rem;opacity:.75"></div>`;
+  return row;
 }
 
 function renderMiniTable(container, items, cacheMap) {
-  if (!items || !items.length) {
-    const w = container.querySelector('.rate-table');
-    if (!w) container.innerHTML = '<div class="empty">Waiting for data…</div>';
-    return;
-  }
+  if (!items || !items.length) return;
 
-  const wrapper = ensureMiniWrapper(container);
-  const existing = new Map(
-    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)')).map((r) => [r.dataset.key, r])
-  );
-  const nextRows = [];
+  const [wrapper] = ensureWrapper(container, 'rate-table mini-tbl', MINI_HEADER);
+  const keys = items.map(itemKey);
+  const getRow = syncRows(wrapper, keys, createMiniRow);
 
   items.forEach((item) => {
     const key = itemKey(item);
-    let row = existing.get(key);
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'rate-row';
-      row.dataset.key = key;
-      row.innerHTML = `
-        <div class="rate-cell rate-name"></div>
-        <div class="rate-cell rate-num price"></div>
-        <div class="rate-cell rate-num hl" style="font-size:.8rem;opacity:.75"></div>`;
-    }
+    const row = getRow(key);
+    if (!row) return;
     const prev = cacheMap.get(key) || {};
     const priceVal = num(item.sell) ?? num(item.buy) ?? num(item.value);
 
-    row.querySelector('.rate-name').textContent = item.name || item.label || key;
-
-    const priceEl = row.querySelector('.price');
-    applyDir(priceEl, priceVal, prev.price);
-    priceEl.textContent = fmt(priceVal);
-
-    const hl = row.querySelector('.hl');
-    hl.textContent = `${fmt(item.high)} / ${fmt(item.low)}`;
+    setText(row.querySelector('.rate-name'), item.name || key);
+    patchCell(row.querySelector('.price'), priceVal, prev.price);
+    setText(row.querySelector('.hl'), `${fmt(item.high)} / ${fmt(item.low)}`);
 
     cacheMap.set(key, { price: priceVal });
-    nextRows.push(row);
-    existing.delete(key);
   });
-
-  const header = wrapper.querySelector('.rate-row.header');
-  wrapper.replaceChildren(header, ...nextRows);
 }
 
 /* ─── Coin table ──────────────────────────────────────────────────────────── */
-function ensureCoinWrapper(container) {
-  let w = container.querySelector('.rate-table.coin-tbl');
-  if (!w) {
-    w = document.createElement('div');
-    w.className = 'rate-table coin-tbl';
-    w.innerHTML = `
-      <div class="rate-row header">
-        <div class="rate-cell rate-name" style="flex:2">PRODUCT</div>
-        <div class="rate-cell rate-num">PRICE (₹)</div>
-      </div>`;
-    container.innerHTML = '';
-    container.appendChild(w);
-  }
-  return w;
+const COIN_HEADER = `
+  <div class="rate-row header">
+    <div class="rate-cell rate-name" style="flex:2">PRODUCT</div>
+    <div class="rate-cell rate-num">PRICE (₹)</div>
+  </div>`;
+
+function createCoinRow(key) {
+  const row = document.createElement('div');
+  row.className = 'rate-row';
+  row.dataset.key = key;
+  row.innerHTML = `
+    <div class="rate-cell rate-name" style="flex:2"></div>
+    <div class="rate-cell rate-num price"></div>`;
+  return row;
 }
 
 function renderCoinTable(container, coins, cacheMap) {
   if (!coins || !coins.length) {
-    const w = container.querySelector('.rate-table.coin-tbl');
-    if (!w) container.innerHTML = '<div class="empty">Coin data loading…</div>';
+    if (!container.querySelector('.rate-table.coin-tbl'))
+      container.innerHTML = '<div class="empty">Coin data loading…</div>';
     return;
   }
 
-  const wrapper = ensureCoinWrapper(container);
-  const existing = new Map(
-    Array.from(wrapper.querySelectorAll('.rate-row:not(.header)')).map((r) => [r.dataset.key, r])
-  );
-  const nextRows = [];
+  const [wrapper] = ensureWrapper(container, 'rate-table coin-tbl', COIN_HEADER);
+  const keys = coins.map((c) => String(c.name || '').toLowerCase());
+  const getRow = syncRows(wrapper, keys, createCoinRow);
 
   coins.forEach((coin) => {
     const key = String(coin.name || '').toLowerCase();
-    let row = existing.get(key);
-    if (!row) {
-      row = document.createElement('div');
-      row.className = 'rate-row';
-      row.dataset.key = key;
-      row.innerHTML = `
-        <div class="rate-cell rate-name" style="flex:2"></div>
-        <div class="rate-cell rate-num price"></div>`;
-    }
+    const row = getRow(key);
+    if (!row) return;
     const prev = cacheMap.get(key) || {};
-    row.querySelector('.rate-name').textContent = coin.name;
-    const priceEl = row.querySelector('.price');
-    applyDir(priceEl, coin.price, prev.price);
-    priceEl.textContent = `₹ ${fmt(coin.price)}`;
-    cacheMap.set(key, { price: coin.price });
-    nextRows.push(row);
-    existing.delete(key);
-  });
 
-  const header = wrapper.querySelector('.rate-row.header');
-  wrapper.replaceChildren(header, ...nextRows);
+    setText(row.querySelector('.rate-name'), coin.name);
+    const priceEl = row.querySelector('.price');
+    const text = `₹ ${fmt(coin.price)}`;
+    if (priceEl.textContent !== text) priceEl.textContent = text;
+    const d = priceDir(coin.price, prev.price);
+    if (priceEl.classList.contains('up') !== (d === 'up')) priceEl.classList.toggle('up', d === 'up');
+    if (priceEl.classList.contains('down') !== (d === 'down')) priceEl.classList.toggle('down', d === 'down');
+
+    cacheMap.set(key, { price: coin.price });
+  });
 }
 
 /* ─── Status ──────────────────────────────────────────────────────────────── */
@@ -351,7 +367,6 @@ function statusFrom(data) {
 /* ─── Main render ─────────────────────────────────────────────────────────── */
 function renderData(data) {
   if (!data) return;
-  state.data = data;
 
   const status = statusFrom(data);
   if (el.statusDot) el.statusDot.className = `status-dot ${status.cls}`;
@@ -359,7 +374,6 @@ function renderData(data) {
   setText(el.lastUpdated, timeFmt(data.updatedAt));
 
   renderKaratGrid(data.gold?.master);
-
   renderProductTable(el.goldProductTable, data.gold?.products, state.prev.goldProducts);
   renderMiniTable(el.goldFutureTable, data.gold?.future, state.prev.goldFuture);
   renderMiniTable(el.goldSpotTable, data.gold?.spot, state.prev.goldSpot);
@@ -373,16 +387,6 @@ function renderData(data) {
   renderCoinTable(el.coinTable, coinRows, coinCache);
 }
 
-function scheduleRender(data) {
-  state.data = data;
-  if (state.pendingRender) return;
-  state.pendingRender = true;
-  requestAnimationFrame(() => {
-    state.pendingRender = false;
-    renderData(state.data);
-  });
-}
-
 /* ─── Navigation ──────────────────────────────────────────────────────────── */
 function setPage(page) {
   state.currentPage = page;
@@ -394,12 +398,12 @@ function setCoinTab(tab) {
   state.coinTab = tab;
   el.coinTabGold.classList.toggle('active', tab === 'gold');
   el.coinTabSilver.classList.toggle('active', tab === 'silver');
+  // Remove coin-tbl so it rebuilds fresh for new tab
+  const old = el.coinTable.querySelector('.rate-table.coin-tbl');
+  if (old) old.remove();
   if (state.data) {
     const coinRows = tab === 'gold' ? (state.data.coins?.gold || []) : (state.data.coins?.silver || []);
     const coinCache = tab === 'gold' ? state.prev.coinGold : state.prev.coinSilver;
-    // Clear coin-tbl wrapper so it rebuilds for the new tab type
-    const existing = el.coinTable.querySelector('.rate-table.coin-tbl');
-    if (existing) existing.remove();
     renderCoinTable(el.coinTable, coinRows, coinCache);
   }
 }
@@ -419,15 +423,13 @@ socket.on('disconnect', () => {
 });
 
 /* ─── Events ──────────────────────────────────────────────────────────────── */
-el.navItems.forEach((btn) => {
-  btn.addEventListener('click', () => setPage(btn.dataset.page));
-});
+el.navItems.forEach((btn) => btn.addEventListener('click', () => setPage(btn.dataset.page)));
 el.coinTabGold.addEventListener('click', () => setCoinTab('gold'));
 el.coinTabSilver.addEventListener('click', () => setCoinTab('silver'));
 
-/* ─── Initial REST load ───────────────────────────────────────────────────── */
+/* ─── Initial load ────────────────────────────────────────────────────────── */
 fetch('/api/state')
-  .then((res) => res.json())
+  .then((r) => r.json())
   .then((data) => scheduleRender(data))
   .catch(() => {});
 

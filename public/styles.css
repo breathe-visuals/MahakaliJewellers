@@ -17,13 +17,13 @@
 }
 
 * {
-  box-sizing: border-box
+  box-sizing: border-box;
 }
 
 html,
 body {
   margin: 0;
-  padding: 0
+  padding: 0;
 }
 
 body {
@@ -81,8 +81,8 @@ body {
 }
 
 .brand-sub {
-  font-size: .78rem;
-  opacity: .8;
+  font-size: 0.78rem;
+  opacity: 0.8;
 }
 
 .status-chip {
@@ -93,7 +93,7 @@ body {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   white-space: nowrap;
-  font-size: .86rem;
+  font-size: 0.86rem;
   font-weight: 700;
 }
 
@@ -115,9 +115,9 @@ body {
 }
 
 .last-updated {
-  font-size: .9rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  opacity: .9;
+  opacity: 0.9;
   white-space: nowrap;
 }
 
@@ -129,22 +129,22 @@ body {
 
 .page {
   display: none;
-  animation: fadeIn .18s ease;
+  animation: fadeIn 0.18s ease;
 }
 
 .page.active {
-  display: block
+  display: block;
 }
 
 @keyframes fadeIn {
   from {
-    opacity: .75;
-    transform: translateY(6px)
+    opacity: 0.75;
+    transform: translateY(6px);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0)
+    transform: translateY(0);
   }
 }
 
@@ -155,13 +155,13 @@ body {
 .page-head h1 {
   margin: 0 0 6px;
   font-size: 1.4rem;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
 }
 
 .page-head p {
   margin: 0;
   color: var(--muted);
-  font-size: .95rem;
+  font-size: 0.95rem;
   line-height: 1.45;
 }
 
@@ -175,21 +175,29 @@ body {
 }
 
 .stack-title {
-  font-size: .92rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--primary);
   margin-bottom: 12px;
 }
 
+.stack-sub {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 700;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .mini-title {
-  font-size: .84rem;
+  font-size: 0.84rem;
   font-weight: 800;
   color: var(--muted);
   margin-bottom: 10px;
   text-transform: uppercase;
-  letter-spacing: .05em;
+  letter-spacing: 0.05em;
 }
 
 .karat-grid {
@@ -211,7 +219,7 @@ body {
 }
 
 .karat-label {
-  font-size: .82rem;
+  font-size: 0.82rem;
   font-weight: 800;
   color: var(--primary);
   display: flex;
@@ -226,19 +234,19 @@ body {
   font-size: 1.65rem;
   font-weight: 700;
   line-height: 1.0;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
   color: var(--text);
   padding: 6px 0;
-  transition: transform .18s ease, color .18s ease;
+  transition: transform 0.18s ease, color 0.18s ease;
 }
 
 .karat-foot {
   display: flex;
   justify-content: space-between;
-  font-size: .74rem;
+  font-size: 0.74rem;
   font-weight: 800;
   color: var(--muted);
-  opacity: .95;
+  opacity: 0.95;
 }
 
 .rate-table {
@@ -248,7 +256,6 @@ body {
 
 .rate-row {
   display: grid;
-  grid-template-columns: 1.45fr .85fr .85fr .85fr .85fr;
   gap: 8px;
   align-items: center;
   padding: 11px 12px;
@@ -261,10 +268,19 @@ body {
 .rate-row.header {
   background: var(--primary);
   color: #fff;
-  font-size: .78rem;
+  font-size: 0.78rem;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
+}
+
+.product-table .rate-row,
+.future-spot-table .rate-row {
+  grid-template-columns: 1.45fr 0.9fr 0.9fr 0.9fr;
+}
+
+.coin-table .rate-row {
+  grid-template-columns: 2fr 1fr;
 }
 
 .rate-cell {
@@ -276,7 +292,7 @@ body {
 
 .rate-name {
   font-weight: 900;
-  font-size: .92rem;
+  font-size: 0.92rem;
 }
 
 .rate-num {
@@ -284,41 +300,19 @@ body {
   font-size: 1.05rem;
   font-weight: 700;
   text-align: right;
-  transition: color .18s ease, transform .18s ease;
+  transition: color 0.18s ease, transform 0.18s ease;
 }
 
 .rate-num.up {
-  color: var(--up)
+  color: var(--up);
 }
 
 .rate-num.down {
-  color: var(--down)
+  color: var(--down);
 }
 
 .rate-num.neutral {
-  color: var(--text)
-}
-
-.market-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-.market-card {
-  border: 1px solid rgba(39, 84, 103, 0.1);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #fff 0%, #f8fbfd 100%);
-  padding: 12px;
-}
-
-.market-card-title {
-  font-weight: 900;
-  font-size: .95rem;
-  color: var(--primary);
-  margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: .06em;
+  color: var(--text);
 }
 
 .coin-tabs {
@@ -343,9 +337,9 @@ body {
   color: var(--primary);
   border: 1px solid rgba(39, 84, 103, 0.18);
   font-weight: 900;
-  letter-spacing: .05em;
+  letter-spacing: 0.05em;
   box-shadow: 0 4px 15px rgba(15, 31, 38, 0.05);
-  transition: transform .15s ease, background .15s ease, color .15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .coin-tab.active {
@@ -356,7 +350,7 @@ body {
 
 .coin-tab:active,
 .nav-item:active {
-  transform: scale(.98);
+  transform: scale(0.98);
 }
 
 .bottom-nav {
@@ -381,10 +375,10 @@ body {
   background: #fff;
   color: var(--primary);
   font-weight: 900;
-  font-size: .95rem;
+  font-size: 0.95rem;
   box-shadow: 0 4px 14px rgba(15, 31, 38, 0.04);
   border: 1px solid rgba(39, 84, 103, 0.1);
-  transition: background .15s ease, color .15s ease, transform .15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .nav-item.active {
@@ -403,24 +397,48 @@ body {
   border: 1px dashed rgba(39, 84, 103, 0.18);
 }
 
-.two-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.rate-cell.action {
+  text-align: center;
+}
+
+.action-btn {
+  border: 0;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 800;
+  padding: 7px 14px;
+  font-family: inherit;
+  cursor: default;
+  opacity: 0.95;
+}
+
+.future-spot-table .rate-row {
+  grid-template-columns: 1.45fr 0.9fr 0.9fr 1fr;
+}
+
+.value-up {
+  color: var(--up) !important;
+}
+
+.value-down {
+  color: var(--down) !important;
 }
 
 @media (max-width: 960px) {
   .karat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
-  }
-
-  .rate-row {
-    grid-template-columns: 1.3fr .8fr .8fr .8fr .8fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .two-col {
-    grid-template-columns: 1fr
+    grid-template-columns: 1fr;
   }
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 @media (max-width: 720px) {
@@ -432,94 +450,48 @@ body {
 
   .status-chip,
   .last-updated {
-    font-size: .8rem
+    font-size: 0.8rem;
   }
 
   .app-shell {
-    padding-inline: 10px
+    padding-inline: 10px;
   }
 
-  .karat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr))
-  }
-
-  .rate-row {
-    grid-template-columns: 1.55fr .95fr .95fr;
-    grid-template-areas:
-      "name name name"
-      "buy sell high"
-      "low low low";
-    row-gap: 6px;
+  .product-table .rate-row,
+  .future-spot-table .rate-row,
+  .coin-table .rate-row {
+    grid-template-columns: 1fr;
   }
 
   .rate-row.header {
     display: none;
   }
 
-  .rate-row .name {
-    grid-area: name
-  }
-
-  .rate-row .buy {
-    grid-area: buy
-  }
-
-  .rate-row .sell {
-    grid-area: sell
-  }
-
-  .rate-row .high {
-    grid-area: high
-  }
-
-  .rate-row .low {
-    grid-area: low
-  }
-
-  .rate-name {
-    font-size: .9rem
-  }
-
-  .rate-num {
-    text-align: left
+  .rate-row .rate-name,
+  .rate-row .rate-num {
+    text-align: left;
   }
 
   .bottom-nav {
-    gap: 8px
+    gap: 8px;
   }
 
   .nav-item {
-    font-size: .9rem;
-    padding: 12px
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+
+  .coin-tabs {
+    gap: 8px;
   }
 }
 
 @media (max-width: 430px) {
   .karat-grid {
-    grid-template-columns: 1fr 1fr
+    grid-template-columns: 1fr 1fr;
   }
 
   .karat-value {
-    font-size: 1.45rem
+    font-size: 1.45rem;
   }
 }
-
-/* ─── Direction helpers ────────────────────────────────────────────────── */
-.value-up   { color: var(--up) !important; }
-.value-down { color: var(--down) !important; }
-
-/* ─── Rate row as flex (works for both 5-col and 2-col coin rows) ────────── */
-.rate-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rate-row .rate-name { flex: 1.6; }
-.rate-row .rate-num  { flex: 1; }
-
-/* coin table: 2-col (product takes more space) */
-.rate-row .rate-name[style*="flex:2"] { flex: 2; }
-
-/* hidden utility */
-.hidden { display: none !important; }

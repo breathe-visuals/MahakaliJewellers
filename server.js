@@ -2,12 +2,14 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
+
 const { createGopnathCollector } = require('./adapters/gopnath');
 const { createSwayamCollector } = require('./adapters/swayam');
 const { createRightGoldCollector } = require('./adapters/rightgold');
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: { origin: '*' }
 });
@@ -144,7 +146,7 @@ function mapProduct(it) {
   return {
     ...it,
     buy: it.bid,
-    sell: it.ask ?? it.bid,
+    sell: it.ask ?? it.bid
   };
 }
 
@@ -179,53 +181,46 @@ function broadcast() {
   }, 300);
 }
 
+function isFutureLike(key) {
+  return /(future|next|goldnext|silvernext|comex)/i.test(key);
+}
+
+function isSpotLike(key) {
+  return /(spot|inrspot|inr spot|xauusd|xagusd|xau usd|xag usd|comex)/i.test(key);
+}
+
 function updateGold(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter(it => it.name);
+  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
   if (!items.length) return;
 
   state.gold.all = items;
 
-  // Karat base = 999 IMP RTGS
   state.gold.master =
     bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']) ||
-    items[0] || null;
+    items[0] ||
+    null;
 
-  // Exact 3 products
-  state.gold.products = [
-    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']),
-    bestMatch(items, ['REFF ONLY L',  'GOLD REFF L',   'REFF L']),
-    bestMatch(items, ['REFF ONLY IMP','GOLD REFF ONLY IMP', 'REFF ONLY', 'GOLD REFF'])
-  ].filter(Boolean);
-
-  if (!state.gold.products.length) state.gold.products = items.slice(0, 3);
-
-  state.gold.future = pickByRegex(items, /(future|next|goldnext|gold next)/i);
-  state.gold.spot   = pickByRegex(items, /(spot|inrspot|inr spot)/i);
+  state.gold.products = items.filter((it) => !isFutureLike(it.key) && !isSpotLike(it.key));
+  state.gold.future = items.filter((it) => isFutureLike(it.key));
+  state.gold.spot = items.filter((it) => isSpotLike(it.key));
 
   broadcast();
 }
 
 function updateSilver(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter(it => it.name);
+  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
   if (!items.length) return;
 
   state.silver.all = items;
+
   state.silver.master =
     bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS']) ||
-    items[0] || null;
+    items[0] ||
+    null;
 
-  // Exact 4 products
-  state.silver.products = [
-    bestMatch(items, ['98.S REF+GST',   '98.S REF GST',   '98S REF GST']),
-    bestMatch(items, ['98.S RTGS',      'IMP SILVER RTGS','SILVER RTGS']),
-    bestMatch(items, ['SILVER 999+GST', '999 SILVER+GST', 'SILVER 999']),
-    bestMatch(items, ['SILVER PETI RTGS','PETI RTGS',     'SILVER PETI'])
-  ].filter(Boolean);
-
-  if (!state.silver.products.length) state.silver.products = items.slice(0, 4);
-
-  state.silver.future = pickByRegex(items, /(future|next|silvernext|silver next)/i);
-  state.silver.spot   = pickByRegex(items, /(spot|inrspot|inr spot)/i);
+  state.silver.products = items.filter((it) => !isFutureLike(it.key) && !isSpotLike(it.key));
+  state.silver.future = items.filter((it) => isFutureLike(it.key));
+  state.silver.spot = items.filter((it) => isSpotLike(it.key));
 
   broadcast();
 }

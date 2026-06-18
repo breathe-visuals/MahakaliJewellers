@@ -160,64 +160,77 @@ function emitState() {
 }
 
 function categorizeGold(items) {
-  const goldItems = items.filter((it) => !/silver/i.test(it.name));
+  // Use all items from gopnath as gold (it's a gold-only feed)
+  const goldItems = items;
+
   const master = bestMatch(goldItems, [
     '999 IMP RTGS',
     'IMP GOLD RTGS',
     '999 IMP',
-    'IMP RTGS'
+    'IMP RTGS',
+    'RTGS'
   ]);
 
-  const products = [
-    bestMatch(goldItems, ['999 IMP RTGS', 'IMP GOLD RTGS']),
-    bestMatch(goldItems, ['GOLD REFF']),
-    bestMatch(goldItems, ['GOLD REFF L', 'GOLD REFF ONLY L', 'REFF L'])
-  ].filter(Boolean);
-
-  const future = [
-    ...pickByRegex(goldItems, /(future|next|xauusd|gold future)/i)
+  // Pick up to 3 key products
+  const productLabels = [
+    ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP'],
+    ['GOLD REFF', 'REFF ONLY', 'REFF'],
+    ['GOLD REFF L', 'REFF L', 'REFF ONLY L']
   ];
+  const products = productLabels
+    .map((lbls) => bestMatch(goldItems, lbls))
+    .filter(Boolean);
 
-  const spot = [
-    ...pickByRegex(goldItems, /(spot|inr spot|xauusd|gold spot)/i)
-  ];
+  // Fall back: just show first 3 items if no named matches
+  const finalProducts = products.length ? products : goldItems.slice(0, 3);
 
-  state.gold.all = goldItems;
-  state.gold.master = master;
-  state.gold.products = products;
-  state.gold.future = future;
-  state.gold.spot = spot;
+  const future = pickByRegex(goldItems, /(future|next|goldnext)/i);
+  const spot   = pickByRegex(goldItems, /(spot|inrspot)/i);
+
+  state.gold.all      = goldItems;
+  state.gold.master   = master || goldItems[0] || null;
+  state.gold.products = finalProducts;
+  state.gold.future   = future;
+  state.gold.spot     = spot;
+
+  console.log('[gold] master:', state.gold.master?.name, 'sell:', state.gold.master?.sell, 'products:', finalProducts.length);
 }
 
 function categorizeSilver(items) {
-  const silverItems = items.filter((it) => /silver/i.test(it.name));
+  // Swayam is a silver feed — use ALL items as silver products
+  const silverItems = items;
 
   const master = bestMatch(silverItems, [
     'IMP SILVER RTGS',
+    'SILVER IMP RTGS',
+    '999 SILVER RTGS',
     'SILVER RTGS',
-    '999 SILVER RTGS'
+    'RTGS'
   ]);
 
-  const products = [
-    bestMatch(silverItems, ['IMP SILVER RTGS', 'SILVER IMP RTGS', '999 SILVER RTGS']),
-    bestMatch(silverItems, ['SILVER REFF']),
-    bestMatch(silverItems, ['SILVER REFF L', 'SILVER REFF ONLY L', 'REFF L']),
-    bestMatch(silverItems, ['925 SILVER ORNA', '999 SILVER REFF', 'SILVER ORNA'])
-  ].filter(Boolean);
-
-  const future = [
-    ...pickByRegex(silverItems, /(future|next|xagusd|silver future)/i)
+  const productLabels = [
+    ['IMP SILVER RTGS', 'SILVER IMP RTGS', '999 SILVER RTGS', 'SILVER RTGS'],
+    ['SILVER REFF', 'REFF'],
+    ['SILVER REFF L', 'SILVER REFF ONLY L', 'REFF L'],
+    ['925 SILVER ORNA', 'SILVER ORNA', '999 SILVER REFF']
   ];
+  const products = productLabels
+    .map((lbls) => bestMatch(silverItems, lbls))
+    .filter(Boolean);
 
-  const spot = [
-    ...pickByRegex(silverItems, /(spot|inr spot|xagusd|silver spot)/i)
-  ];
+  // Fall back: just show first 4 items if no named matches
+  const finalProducts = products.length ? products : silverItems.slice(0, 4);
 
-  state.silver.all = silverItems;
-  state.silver.master = master;
-  state.silver.products = products;
-  state.silver.future = future;
-  state.silver.spot = spot;
+  const future = pickByRegex(silverItems, /(future|next|silvernext)/i);
+  const spot   = pickByRegex(silverItems, /(spot|inrspot)/i);
+
+  state.silver.all      = silverItems;
+  state.silver.master   = master || silverItems[0] || null;
+  state.silver.products = finalProducts;
+  state.silver.future   = future;
+  state.silver.spot     = spot;
+
+  console.log('[silver] master:', state.silver.master?.name, 'sell:', state.silver.master?.sell, 'products:', finalProducts.length);
 }
 
 function processFeed(sourceKey, payload) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mahakali-v1';
+const CACHE_NAME = 'mahakali-v4';
 
 const SHELL_ASSETS = [
   '/',

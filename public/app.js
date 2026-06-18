@@ -150,7 +150,8 @@ function syncRows(wrapper, keys, createRow) {
 const KARAT_FACTORS = [24, 22, 21, 20, 18, 14, 10, 9];
 
 function buildKarats(master) {
-  const base = num(master?.sell ?? master?.buy ?? master?.value);
+  // master now has buy=bid, sell=ask|bid from server mapProduct()
+  const base = num(master?.sell ?? master?.buy ?? master?.bid ?? master?.ask ?? master?.value);
   return KARAT_FACTORS.map((k) => ({
     label: `${k}K`,
     note: k === 24 ? 'PURE' : 'LIVE',

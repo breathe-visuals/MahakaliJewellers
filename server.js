@@ -139,22 +139,31 @@ function pickByRegex(items, regex) {
   return items.filter((it) => regex.test(it.key));
 }
 
+function mapProduct(it) {
+  if (!it) return it;
+  return {
+    ...it,
+    buy: it.bid,
+    sell: it.ask ?? it.bid,
+  };
+}
+
 function publicState() {
   return {
     connected: state.connected,
     updatedAt: state.updatedAt,
     errors: state.errors,
     gold: {
-      master: state.gold.master,
-      products: state.gold.products,
-      future: state.gold.future,
-      spot: state.gold.spot
+      master: mapProduct(state.gold.master),
+      products: (state.gold.products || []).map(mapProduct),
+      future: (state.gold.future || []).map(mapProduct),
+      spot: (state.gold.spot || []).map(mapProduct)
     },
     silver: {
-      master: state.silver.master,
-      products: state.silver.products,
-      future: state.silver.future,
-      spot: state.silver.spot
+      master: mapProduct(state.silver.master),
+      products: (state.silver.products || []).map(mapProduct),
+      future: (state.silver.future || []).map(mapProduct),
+      spot: (state.silver.spot || []).map(mapProduct)
     },
     coins: state.coins
   };
@@ -175,15 +184,19 @@ function updateGold(payload) {
   if (!items.length) return;
 
   state.gold.all = items;
+
+  // Karat calculation base = REFF ONLY L rate
   state.gold.master =
-    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP', 'IMP RTGS', 'RTGS']) ||
+    bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']) ||
+    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']) ||
     items[0] ||
     null;
 
+  // Exact 3 products as specified
   const chosen = [
     bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']),
     bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']),
-    bestMatch(items, ['REFF ONLY IMP', 'GOLD REFF', 'REFF ONLY', 'GOLD REFF ONLY IMP'])
+    bestMatch(items, ['REFF ONLY IMP', 'GOLD REFF ONLY IMP', 'REFF ONLY', 'GOLD REFF'])
   ].filter(Boolean);
 
   state.gold.products = chosen.length ? chosen : items.slice(0, 3);

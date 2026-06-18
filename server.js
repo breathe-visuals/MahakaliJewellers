@@ -2,9 +2,9 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const { createGopnathCollector } = require('./gopnath');
-const { createSwayamCollector } = require('./swayam');
-const { createRightGoldCollector } = require('./rightgold');
+const { createGopnathCollector } = require('./adapters/gopnath');
+const { createSwayamCollector } = require('./adapters/swayam');
+const { createRightGoldCollector } = require('./adapters/rightgold');
 
 const app = express();
 const server = http.createServer(app);

@@ -2,8 +2,9 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-const { io: createClient } = require('socket.io-client');
-const { scrapeCoins } = require('./adapters/rightgold');
+const { createGopnathCollector } = require('./gopnath');
+const { createSwayamCollector } = require('./swayam');
+const { createRightGoldCollector } = require('./rightgold');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,19 +14,6 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-const FEEDS = {
-  gopnath: {
-    url: process.env.GOPNATH_SOCKET_URL || 'https://starlinesupport.in:10001',
-    room: process.env.GOPNATH_SOCKET_ROOM || 'gopnathrefinery'
-  },
-  swayam: {
-    url: process.env.SWAYAM_SOCKET_URL || 'https://starlinesolutions.in:10001',
-    room: process.env.SWAYAM_SOCKET_ROOM || 'swayamtrading'
-  }
-};
-
-const COIN_REFRESH_MS = Number(process.env.COIN_REFRESH_MS || 30000);
-
 const state = {
   connected: {
     gopnath: false,
@@ -34,6 +22,8 @@ const state = {
   },
   updatedAt: null,
   errors: {
+    gopnath: null,
+    swayam: null,
     coins: null
   },
   gold: {
@@ -56,61 +46,77 @@ const state = {
   }
 };
 
+let broadcastTimer = null;
+
+function cleanText(value) {
+  return String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function toNum(value) {
-  if (value === undefined || value === null) return null;
+  if (value === undefined || value === null || value === '') return null;
   const cleaned = String(value).replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
   if (!cleaned) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
-function normalizeText(value) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 function canonical(value) {
-  return normalizeText(value).toLowerCase();
+  return cleanText(value).toLowerCase();
 }
 
-function normalizeArray(data) {
-  if (!data) return [];
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data.Rate)) return data.Rate;
-  if (Array.isArray(data.rate)) return data.rate;
-  if (Array.isArray(data.data)) return data.data;
-  if (Array.isArray(data.items)) return data.items;
-  if (Array.isArray(data.rows)) return data.rows;
+function normalizeArray(payload) {
+  if (!payload) return [];
+  if (Array.isArray(payload)) return payload;
+
+  if (typeof payload === 'object') {
+    const keys = [
+      'data',
+      'items',
+      'rows',
+      'products',
+      'mainProducts',
+      'referanceProducts',
+      'Rate',
+      'rate'
+    ];
+    for (const key of keys) {
+      if (Array.isArray(payload[key])) return payload[key];
+    }
+  }
+
   return [];
 }
 
 function normalizeItem(item) {
-  const name = normalizeText(
+  const name = cleanText(
     item?.name ??
     item?.Name ??
     item?.symbol ??
     item?.Symbol ??
-    item?.Source ??
     item?.title ??
-    item?.Title
+    item?.Title ??
+    item?.Source
   );
 
   return {
     name,
     key: canonical(name),
-    buy: toNum(item?.buy ?? item?.Buy ?? item?.bid ?? item?.Bid ?? item?.rate ?? item?.Rate ?? item?.ltp ?? item?.LTP),
-    sell: toNum(item?.sell ?? item?.Sell ?? item?.ask ?? item?.Ask ?? item?.rate ?? item?.Rate ?? item?.ltp ?? item?.LTP),
-    high: toNum(item?.high ?? item?.High),
-    low: toNum(item?.low ?? item?.Low),
-    value: toNum(item?.value ?? item?.Value ?? item?.price ?? item?.Price),
-    source: item?.source ?? item?.Source ?? null,
+    src: cleanText(item?.src ?? item?.source ?? item?.Src ?? item?.Symbol).toLowerCase(),
+    id: item?.id ?? item?.ID ?? null,
+    bid: toNum(item?.bid ?? item?.Bid),
+    ask: toNum(item?.ask ?? item?.Ask),
+    high: toNum(item?.High ?? item?.high),
+    low: toNum(item?.Low ?? item?.low),
+    value: toNum(item?.value ?? item?.Value ?? item?.price ?? item?.Price ?? item?.rate ?? item?.Rate),
     raw: item
   };
 }
 
 function bestMatch(items, labels) {
   const cleaned = items.filter(Boolean);
+
   for (const label of labels) {
     const key = canonical(label);
     const exact = cleaned.find((it) => it.key === key);
@@ -154,185 +160,135 @@ function publicState() {
   };
 }
 
-let emitTimer = null;
-function emitState() {
+function broadcast() {
   state.updatedAt = new Date().toISOString();
-  if (emitTimer) return; // throttle: max 1 emit per 800ms
-  emitTimer = setTimeout(() => {
-    emitTimer = null;
+
+  if (broadcastTimer) return;
+  broadcastTimer = setTimeout(() => {
+    broadcastTimer = null;
     io.emit('state', publicState());
-  }, 800);
+  }, 300);
 }
 
-function categorizeGold(items) {
-  // Use all items from gopnath as gold (it's a gold-only feed)
-  const goldItems = items;
-
-  const master = bestMatch(goldItems, [
-    '999 IMP RTGS',
-    'IMP GOLD RTGS',
-    '999 IMP',
-    'IMP RTGS',
-    'RTGS'
-  ]);
-
-  // Pick up to 3 key products
-  const productLabels = [
-    ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP'],
-    ['GOLD REFF', 'REFF ONLY', 'REFF'],
-    ['GOLD REFF L', 'REFF L', 'REFF ONLY L']
-  ];
-  const products = productLabels
-    .map((lbls) => bestMatch(goldItems, lbls))
-    .filter(Boolean);
-
-  // Fall back: just show first 3 items if no named matches
-  const finalProducts = products.length ? products : goldItems.slice(0, 3);
-
-  const future = pickByRegex(goldItems, /(future|next|goldnext)/i);
-  const spot   = pickByRegex(goldItems, /(spot|inrspot)/i);
-
-  state.gold.all      = goldItems;
-  state.gold.master   = master || goldItems[0] || null;
-  state.gold.products = finalProducts;
-  state.gold.future   = future;
-  state.gold.spot     = spot;
-
-  console.log('[gold] master:', state.gold.master?.name, 'sell:', state.gold.master?.sell, 'products:', finalProducts.length);
-}
-
-function categorizeSilver(items) {
-  // Swayam is a silver feed — use ALL items as silver products
-  const silverItems = items;
-
-  const master = bestMatch(silverItems, [
-    'IMP SILVER RTGS',
-    'SILVER IMP RTGS',
-    '999 SILVER RTGS',
-    'SILVER RTGS',
-    'RTGS'
-  ]);
-
-  const productLabels = [
-    ['IMP SILVER RTGS', 'SILVER IMP RTGS', '999 SILVER RTGS', 'SILVER RTGS'],
-    ['SILVER REFF', 'REFF'],
-    ['SILVER REFF L', 'SILVER REFF ONLY L', 'REFF L'],
-    ['925 SILVER ORNA', 'SILVER ORNA', '999 SILVER REFF']
-  ];
-  const products = productLabels
-    .map((lbls) => bestMatch(silverItems, lbls))
-    .filter(Boolean);
-
-  // Fall back: just show first 4 items if no named matches
-  const finalProducts = products.length ? products : silverItems.slice(0, 4);
-
-  const future = pickByRegex(silverItems, /(future|next|silvernext)/i);
-  const spot   = pickByRegex(silverItems, /(spot|inrspot)/i);
-
-  state.silver.all      = silverItems;
-  state.silver.master   = master || silverItems[0] || null;
-  state.silver.products = finalProducts;
-  state.silver.future   = future;
-  state.silver.spot     = spot;
-
-  console.log('[silver] master:', state.silver.master?.name, 'sell:', state.silver.master?.sell, 'products:', finalProducts.length);
-}
-
-function processFeed(sourceKey, payload) {
-  const items = normalizeArray(
-    typeof payload === 'string' ? safeJsonParse(payload) : payload
-  ).map(normalizeItem).filter((it) => it.name);
-
+function updateGold(payload) {
+  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
   if (!items.length) return;
 
-  if (sourceKey === 'gopnath') {
-    categorizeGold(items);
-  }
+  state.gold.all = items;
+  state.gold.master =
+    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP', 'IMP RTGS', 'RTGS']) ||
+    items[0] ||
+    null;
 
-  if (sourceKey === 'swayam') {
-    categorizeSilver(items);
-  }
+  const chosen = [
+    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']),
+    bestMatch(items, ['REFF ONLY L', 'GOLD REFF L', 'REFF L']),
+    bestMatch(items, ['REFF ONLY IMP', 'GOLD REFF', 'REFF ONLY', 'GOLD REFF ONLY IMP'])
+  ].filter(Boolean);
 
-  emitState();
+  state.gold.products = chosen.length ? chosen : items.slice(0, 3);
+  state.gold.future = pickByRegex(items, /(future|next|gold next|goldnext|gold future)/i);
+  state.gold.spot = pickByRegex(items, /(spot|inr spot|inrspot|xauusd|xau usd)/i);
+
+  broadcast();
 }
 
-function safeJsonParse(value) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
+function updateSilver(payload) {
+  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
+  if (!items.length) return;
+
+  state.silver.all = items;
+  state.silver.master =
+    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS', '999 SILVER RTGS']) ||
+    items[0] ||
+    null;
+
+  const chosen = [
+    bestMatch(items, ['98.S REF+GST', '98.S REF GST']),
+    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS', '999 SILVER RTGS']),
+    bestMatch(items, ['SILVER 999+GST', '999 SILVER+GST', 'SILVER 999']),
+    bestMatch(items, ['SILVER PETI RTGS', 'PETI RTGS']),
+    bestMatch(items, ['SILVER REFF', 'SILVER REFF L', 'SILVER REFF ONLY L'])
+  ].filter(Boolean);
+
+  state.silver.products = chosen.length ? chosen : items.slice(0, 4);
+  state.silver.future = pickByRegex(items, /(future|next|silver next|silvernext)/i);
+  state.silver.spot = pickByRegex(items, /(spot|inr spot|inrspot|xagusd|xag usd)/i);
+
+  broadcast();
 }
 
-function connectFeed(sourceKey) {
-  const feed = FEEDS[sourceKey];
-  const socket = createClient(feed.url, {
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    rejectUnauthorized: false
-  });
+function updateCoins(result) {
+  if (!result) return;
 
-  socket.on('connect', () => {
-    state.connected[sourceKey] = true;
-    socket.emit('room', feed.room);
-    socket.emit('Client', feed.room);
-    emitState();
-  });
+  const goldCoins = Array.isArray(result.goldCoins) ? result.goldCoins : [];
+  const silverCoins = Array.isArray(result.silverCoins) ? result.silverCoins : [];
 
-  socket.on('disconnect', () => {
-    state.connected[sourceKey] = false;
-    emitState();
-  });
+  if (!goldCoins.length && !silverCoins.length) return;
 
-  socket.on('connect_error', (err) => {
-    state.connected[sourceKey] = false;
-    state.errors[sourceKey] = err?.message || 'connect_error';
-    emitState();
-    console.log(`[${sourceKey}] connect_error:`, err?.message || err);
-  });
+  state.coins.gold = goldCoins;
+  state.coins.silver = silverCoins;
+  state.connected.coins = true;
+  state.errors.coins = null;
 
-  socket.on('ClientData', (data) => {
-    const parsed = typeof data === 'string' ? safeJsonParse(data) : data;
-    if (parsed && typeof parsed === 'object') {
-      state.errors[sourceKey] = null;
-    }
-  });
-
-  socket.on('message', (data) => processFeed(sourceKey, data));
-  socket.on('Liverate', (data) => processFeed(sourceKey, data));
-  socket.on('data', (data) => processFeed(sourceKey, data));
-
-  return socket;
+  broadcast();
 }
 
-async function refreshCoins() {
-  try {
-    const coinData = await scrapeCoins();
+createGopnathCollector({
+  onConnect: () => {
+    state.connected.gopnath = true;
+    state.errors.gopnath = null;
+    broadcast();
+  },
+  onDisconnect: () => {
+    state.connected.gopnath = false;
+    broadcast();
+  },
+  onError: (err) => {
+    state.connected.gopnath = false;
+    state.errors.gopnath = err?.message || 'gopnath connect_error';
+    broadcast();
+  },
+  onData: updateGold
+});
 
-    state.coins.gold = Array.isArray(coinData.goldCoins) ? coinData.goldCoins : [];
-    state.coins.silver = Array.isArray(coinData.silverCoins) ? coinData.silverCoins : [];
+createSwayamCollector({
+  onConnect: () => {
+    state.connected.swayam = true;
+    state.errors.swayam = null;
+    broadcast();
+  },
+  onDisconnect: () => {
+    state.connected.swayam = false;
+    broadcast();
+  },
+  onError: (err) => {
+    state.connected.swayam = false;
+    state.errors.swayam = err?.message || 'swayam connect_error';
+    broadcast();
+  },
+  onData: updateSilver
+});
+
+createRightGoldCollector({
+  onConnect: () => {
     state.connected.coins = true;
     state.errors.coins = null;
-
-    emitState();
-  } catch (err) {
+    broadcast();
+  },
+  onDisconnect: () => {
     state.connected.coins = false;
-    state.errors.coins = err?.message || 'coin scrape failed';
-    emitState();
-    console.log('[coins] scrape error:', err?.message || err);
-  }
-}
+    broadcast();
+  },
+  onError: (err) => {
+    state.connected.coins = false;
+    state.errors.coins = err?.message || 'rightgold connect_error';
+    broadcast();
+  },
+  onCoins: updateCoins
+});
 
-function startCollectors() {
-  connectFeed('gopnath');
-  connectFeed('swayam');
-  refreshCoins();
-  setInterval(refreshCoins, COIN_REFRESH_MS);
-}
-
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname));
 app.use('/Media', express.static(path.join(__dirname, 'Media')));
 
 app.get('/health', (req, res) => {
@@ -349,25 +305,16 @@ app.get('/api/state', (req, res) => {
 
 app.get('/api/coins', (req, res) => {
   res.json({
-    updatedAt: state.updatedAt,
     connected: state.connected.coins,
+    updatedAt: state.updatedAt,
     gold: state.coins.gold,
     silver: state.coins.silver,
     error: state.errors.coins
   });
 });
 
-app.get('/api/debug/coins', async (req, res) => {
-  try {
-    const result = await scrapeCoins();
-    res.json({ ok: true, ...result });
-  } catch (err) {
-    res.json({ ok: false, error: err?.message });
-  }
-});
-
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 io.on('connection', (socket) => {
@@ -378,7 +325,13 @@ io.on('connection', (socket) => {
   });
 });
 
-startCollectors();
+process.on('unhandledRejection', (err) => {
+  console.error('unhandledRejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err);
+});
 
 server.listen(PORT, () => {
   console.log(`Mahakali Jewellers running on port ${PORT}`);

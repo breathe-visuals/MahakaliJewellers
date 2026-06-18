@@ -1,5 +1,4 @@
-const axios = require('axios');
-const cheerio = require('cheerio');
+const { chromium } = require('playwright');
 
 const URLS = [
   process.env.RIGHTGOLD_COIN_URL || 'https://chawlajewellers.com/coinrate-iframe',
@@ -7,11 +6,23 @@ const URLS = [
   'https://chawlajewellers.com/',
 ];
 
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'en-US,en;q=0.9',
-};
+const USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+let browserPromise = null;
+
+async function getBrowser() {
+  if (!browserPromise) {
+    browserPromise = chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    }).catch((err) => {
+      browserPromise = null;
+      throw err;
+    });
+  }
+  return browserPromise;
+}
 
 function normalize(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -21,66 +32,89 @@ function parsePrice(text) {
   const cleaned = normalize(text).replace(/[^0-9.]/g, '');
   if (!cleaned) return null;
   const n = Number(cleaned);
-  return Number.isFinite(n) && n > 100 ? n : null; // coin prices are always >100
+  return Number.isFinite(n) && n > 100 ? n : null;
 }
 
 function classify(name) {
   return /silver/i.test(name) ? 'silver' : 'gold';
 }
 
-function extractFromHTML(html) {
-  const $ = cheerio.load(html);
+function splitCoins(rows) {
   const goldCoins = [];
   const silverCoins = [];
   const seen = new Set();
 
-  function push(name, price) {
-    name = normalize(name);
-    if (!name || price === null) return;
+  for (const row of rows) {
+    const name = normalize(row.name);
+    const price = row.price;
+
+    if (!name || price === null || !Number.isFinite(price)) continue;
+
     const key = name.toLowerCase();
-    if (seen.has(key)) return;
+    if (seen.has(key)) continue;
     seen.add(key);
-    (classify(name) === 'silver' ? silverCoins : goldCoins).push({ name, price });
-  }
 
-  // Strategy A: tr.ligh-white rows (chawla layout)
-  $('tr.ligh-white').each((_, row) => {
-    const name = $(row).find('h3').first().text() || $(row).find('td').first().text();
-    const priceText = $(row).find('.product-rate .bgm, .bgm.e, .bgm').first().text();
-    push(name, parsePrice(priceText));
-  });
-
-  // Strategy B: any table with "COIN" in it
-  if (!goldCoins.length && !silverCoins.length) {
-    $('table').each((_, table) => {
-      const tableText = $(table).text().toUpperCase();
-      if (!tableText.includes('COIN')) return;
-      $(table).find('tr').each((_, row) => {
-        const cells = $(row).find('td');
-        if (cells.length < 2) return;
-        const name = cells.eq(0).text();
-        if (!/coin/i.test(name)) return;
-        const price = parsePrice(cells.last().text()) || parsePrice(cells.eq(1).text());
-        push(name, price);
-      });
-    });
-  }
-
-  // Strategy C: elements with class containing "coin" or "product"
-  if (!goldCoins.length && !silverCoins.length) {
-    $('[class]').each((_, node) => {
-      const cls = ($(node).attr('class') || '').toLowerCase();
-      if (!cls.includes('coin') && !cls.includes('product')) return;
-      const text = normalize($(node).text());
-      if (!/coin/i.test(text)) return;
-      const nameMatch = text.match(/\b[\w\s]+coin[\w\s]*/i);
-      const nums = text.match(/\d[\d,]+/g);
-      if (!nameMatch || !nums) return;
-      push(nameMatch[0], parsePrice(nums[nums.length - 1]));
-    });
+    const item = { name, price };
+    if (classify(name) === 'silver') silverCoins.push(item);
+    else goldCoins.push(item);
   }
 
   return { goldCoins, silverCoins };
+}
+
+async function scrapeFromUrl(url) {
+  const browser = await getBrowser();
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 1600 },
+    userAgent: USER_AGENT,
+  });
+
+  try {
+    await page.goto(url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+
+    await page.waitForTimeout(5000);
+
+    await page.waitForSelector('tr.ligh-white, td.p-h.ph.product-rate', {
+      timeout: 15000,
+    });
+
+    const rows = await page.$$eval('tr.ligh-white', (trs) =>
+      trs.map((tr) => {
+        const nameEl = tr.querySelector('h3');
+        const priceEl = tr.querySelector('.product-rate .bgm, .bgm.e, .bgm');
+
+        const name = nameEl ? nameEl.textContent : '';
+        const priceText = priceEl ? priceEl.textContent : '';
+
+        return { name, priceText };
+      })
+    );
+
+    const parsedRows = rows
+      .map((row) => ({
+        name: normalize(row.name),
+        price: parsePrice(row.priceText),
+      }))
+      .filter((row) => row.name && row.price !== null);
+
+    const { goldCoins, silverCoins } = splitCoins(parsedRows);
+
+    console.log(
+      `[coins] url=${url} rows=${parsedRows.length} gold=${goldCoins.length} silver=${silverCoins.length}`
+    );
+
+    return {
+      goldCoins,
+      silverCoins,
+      updatedAt: new Date().toISOString(),
+      sourceUrl: url,
+    };
+  } finally {
+    await page.close().catch(() => { });
+  }
 }
 
 async function scrapeCoins() {
@@ -88,22 +122,13 @@ async function scrapeCoins() {
 
   for (const url of URLS) {
     try {
-      const { data } = await axios.get(url, { timeout: 20000, headers: HEADERS });
-      const { goldCoins, silverCoins } = extractFromHTML(data);
-
-      // Log for debugging
-      const bodySnippet = String(data).slice(0, 500).replace(/\s+/g, ' ');
-      console.log(`[coins] url=${url} gold=${goldCoins.length} silver=${silverCoins.length}`);
-      if (!goldCoins.length && !silverCoins.length) {
-        console.log('[coins] snippet:', bodySnippet);
-      }
-
-      if (goldCoins.length || silverCoins.length) {
-        return { goldCoins, silverCoins, updatedAt: new Date().toISOString(), sourceUrl: url };
+      const result = await scrapeFromUrl(url);
+      if (result.goldCoins.length || result.silverCoins.length) {
+        return result;
       }
     } catch (err) {
       lastError = err;
-      console.log(`[coins] fetch error url=${url}:`, err?.message);
+      console.log(`[coins] scrape failed for ${url}:`, err?.message || err);
     }
   }
 

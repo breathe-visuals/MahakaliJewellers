@@ -1,4 +1,4 @@
-const CACHE = 'mahakali-v1';
+const CACHE = 'mahakali-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -16,10 +16,10 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).catch(() => {})
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -31,7 +31,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/socket.io')) return;
+  if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api')) return;
 
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request).catch(() => caches.match('/index.html')));

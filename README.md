@@ -1,16 +1,16 @@
 # Mahakali Jewellers Live Rate Web App
 
-Single-codebase live rate app for:
+Three-page live rate site for:
 
-- Gold page (Gopnath)
-- Silver page (Swayam)
-- Coin page (Right Gold coin iframe)
+- Gold page sourced from Gopnath
+- Silver page sourced from Swayam
+- Coin page sourced from the Right Gold coin iframe
 
-## Run locally
+## Local run
 
 ```bash
 npm install
-node server.js
+npm start
 ```
 
 Open:
@@ -22,7 +22,7 @@ Open:
 Build command:
 
 ```bash
-npm install && npx playwright install chromium
+npm install
 ```
 
 Start command:
@@ -31,6 +31,9 @@ Start command:
 node server.js
 ```
 
-## Important
+## Notes
 
-The browser only talks to your own server over Socket.IO. Provider sources stay hidden.
+- The app uses your own Node.js server and Socket.IO for live updates.
+- Upstream source branding stays hidden from the frontend.
+- The coin collector uses Playwright, and `postinstall` downloads Chromium automatically.
+- If you want to point the coin collector somewhere else, set `RIGHTGOLD_URL`.

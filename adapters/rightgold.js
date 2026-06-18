@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 function parseNumber(text) {
-  if (!text) return null;
+  if (text === null || text === undefined) return null;
   const cleaned = String(text).replace(/[^\d.-]/g, '');
   if (!cleaned) return null;
   const n = Number(cleaned);
@@ -12,20 +12,20 @@ function normalize(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
 }
 
-async function clickTab(page, text) {
-  const locators = [
-    page.getByText(text, { exact: true }),
-    page.locator(`button:has-text("${text}")`),
-    page.locator(`a:has-text("${text}")`),
-    page.locator(`li:has-text("${text}")`),
-    page.locator(`div:has-text("${text}")`),
-    page.locator(`span:has-text("${text}")`)
+async function clickByText(page, label) {
+  const candidates = [
+    page.getByText(label, { exact: true }),
+    page.locator(`button:has-text("${label}")`),
+    page.locator(`a:has-text("${label}")`),
+    page.locator(`li:has-text("${label}")`),
+    page.locator(`div:has-text("${label}")`),
+    page.locator(`span:has-text("${label}")`),
   ];
 
-  for (const loc of locators) {
+  for (const locator of candidates) {
     try {
-      if (await loc.first().count()) {
-        await loc.first().click({ timeout: 2500 });
+      if (await locator.first().count()) {
+        await locator.first().click({ timeout: 3000 });
         return true;
       }
     } catch (_) {}
@@ -33,46 +33,60 @@ async function clickTab(page, text) {
 
   try {
     await page.evaluate((wanted) => {
-      const els = Array.from(document.querySelectorAll('button,a,li,div,span'));
-      const el = els.find((node) => (node.textContent || '').trim() === wanted);
-      if (el) el.click();
-    }, text);
+      const elements = Array.from(document.querySelectorAll('button,a,li,div,span'));
+      const el = elements.find((node) => (node.textContent || '').trim() === wanted);
+      if (el && typeof el.click === 'function') el.click();
+    }, label);
     return true;
   } catch (_) {
     return false;
   }
 }
 
-async function readRows(page, coinKeyword) {
-  return page.evaluate((needle) => {
-    const rows = Array.from(document.querySelectorAll('tr'))
-      .filter((tr) => tr.offsetParent !== null)
-      .map((tr) => Array.from(tr.querySelectorAll('td,th')).map((el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
-      .filter((cells) => cells.length >= 2 && cells.join(' ').toUpperCase().includes(needle));
-
-    return rows;
-  }, coinKeyword.toUpperCase());
+async function ensureVisible(page) {
+  await page.waitForLoadState('domcontentloaded', { timeout: 45000 }).catch(() => {});
+  await page.waitForTimeout(4000);
 }
 
-function parseRows(rows, keyword) {
-  const out = [];
-  const seen = new Set();
+async function extractRows(page, coinType) {
+  return page.evaluate((needle) => {
+    const rows = Array.from(document.querySelectorAll('tr'))
+      .filter((tr) => tr && tr.offsetParent !== null)
+      .map((tr) => {
+        const cells = Array.from(tr.querySelectorAll('td,th'))
+          .map((el) => (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim())
+          .filter(Boolean);
+        const priceEl = tr.querySelector('.product-rate .bgm, .bgm.e, .bgm');
+        const price = priceEl ? (priceEl.textContent || priceEl.innerText || '').replace(/\s+/g, ' ').trim() : '';
+        return { cells, price };
+      })
+      .filter(({ cells, price }) => {
+        const joined = cells.join(' ').toUpperCase();
+        return joined.includes(needle) && /\d/.test(joined) && !!price && !/^PRODUCT\s+PRICE$/i.test(joined);
+      })
+      .map(({ cells, price }) => {
+        const name = cells.find((cell) => /COIN/i.test(cell) && !/^PRODUCT$/i.test(cell)) || cells[0] || '';
+        return { name: name.trim(), price: price.trim() };
+      })
+      .filter((row) => row.name && row.price);
 
-  for (const cells of rows) {
-    const joined = cells.join(' ').toUpperCase();
-    if (!joined.includes(keyword.toUpperCase())) continue;
+    const unique = [];
+    const seen = new Set();
+    for (const row of rows) {
+      const key = `${row.name}|${row.price}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(row);
+    }
+    return unique;
+  }, coinType.toUpperCase());
+}
 
-    const name = normalize(cells.find((c) => /COIN/i.test(c) && !/^(PRODUCT|PRICE|BUY|SELL)$/i.test(c)) || cells[0]);
-    const priceCell = [...cells].reverse().find((c) => /[\d,]+/.test(c) && /\d/.test(c));
-    const price = parseNumber(priceCell);
-
-    const key = `${name}|${price}`;
-    if (!name || price == null || seen.has(key)) continue;
-    seen.add(key);
-    out.push({ name, price });
-  }
-
-  return out;
+function parseRows(rows) {
+  return (rows || []).map((row) => ({
+    name: normalize(row.name),
+    price: parseNumber(row.price),
+  })).filter((row) => row.name && row.price !== null);
 }
 
 function createRightGoldCollector({ url, onResult, onError } = {}) {
@@ -99,50 +113,41 @@ function createRightGoldCollector({ url, onResult, onError } = {}) {
   }
 
   async function scrape() {
-    let page;
+    const browserInstance = await ensureBrowser();
+    const page = await browserInstance.newPage({ viewport: { width: 1440, height: 1800 } });
+
     try {
-      const b = await ensureBrowser();
-      page = await b.newPage({ viewport: { width: 1440, height: 1800 } });
-
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await page.waitForTimeout(5000);
+      await ensureVisible(page);
 
-      const bodyText = await page.evaluate(() => document.body.innerText || '');
-      if (!/COIN/i.test(bodyText)) {
-        await page.waitForTimeout(2000);
-      }
+      // Gold tab is usually shown first; still click it explicitly.
+      await clickByText(page, 'GOLD COIN');
+      await page.waitForTimeout(1000);
+      const goldRows = parseRows(await extractRows(page, 'GOLD COIN'));
 
-      await clickTab(page, 'GOLD COIN');
-      await page.waitForTimeout(1200);
-      const goldRows = await readRows(page, 'GOLD COIN');
-      const gold = parseRows(goldRows, 'GOLD COIN');
+      await clickByText(page, 'SILVER COIN');
+      await page.waitForTimeout(1000);
+      const silverRows = parseRows(await extractRows(page, 'SILVER COIN'));
 
-      await clickTab(page, 'SILVER COIN');
-      await page.waitForTimeout(1200);
-      const silverRows = await readRows(page, 'SILVER COIN');
-      const silver = parseRows(silverRows, 'SILVER COIN');
-
-      onResult && onResult({ gold, silver });
-      return { gold, silver };
+      const payload = { gold: goldRows, silver: silverRows };
+      onResult && onResult(payload);
+      return payload;
     } catch (err) {
       onError && onError(err);
       throw err;
     } finally {
-      if (page) {
-        try { await page.close(); } catch (_) {}
-      }
+      try { await page.close(); } catch (_) {}
     }
   }
 
   return {
-    start: scrape,
     scrape,
     stop: async () => {
       if (browser) {
-        await browser.close();
+        try { await browser.close(); } catch (_) {}
         browser = null;
       }
-    }
+    },
   };
 }
 

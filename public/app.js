@@ -191,13 +191,6 @@ function updatePrevMap(rows) {
   return map;
 }
 
-/* ── Find product row by NAME (never by index) ────────── */
-function findProductByName(products, name) {
-  if (!Array.isArray(products)) return null;
-  const target = String(name).trim().toLowerCase();
-  return products.find(p => String(p?.name || '').trim().toLowerCase() === target) || null;
-}
-
 /* ── Karat rate renderer ──────────────────────────────── */
 const KARAT_CONFIG = [
   { id: 'kp-24k', pct: 1.0000 },
@@ -209,10 +202,8 @@ const KARAT_CONFIG = [
   { id: 'kp-9k',  pct: 0.3750 },
 ];
 
-function renderKaratRates(goldProducts) {
-  /* Source: 999 IMP RTGS row, Buy (bid) price */
-  const baseRow = findProductByName(goldProducts, '999 IMP RTGS');
-  const base    = baseRow ? toNum(baseRow.bid) : null;
+function renderKaratRates(goldBase) {
+  const base = toNum(goldBase);
 
   KARAT_CONFIG.forEach(({ id, pct }) => {
     const el = document.getElementById(id);
@@ -248,13 +239,11 @@ const GOLD_COINS = [
   { label: 'GOLD COIN 999 100 GM', grams: 100, premium: 10000 },
 ];
 
-function renderGoldCoins(goldProducts) {
+function renderGoldCoins(goldBase) {
   const container = dom.goldCoinBox;
   if (!container) return;
 
-  /* Base: 999 IMP RTGS Buy ÷ 10 = 1g rate */
-  const baseRow = findProductByName(goldProducts, '999 IMP RTGS');
-  const base10g = baseRow ? toNum(baseRow.bid) : null;
+  const base10g = toNum(goldBase);
   const base1g  = base10g !== null ? base10g / 10 : null;
 
   const table = container.querySelector('.coin-table');
@@ -309,14 +298,12 @@ const SILVER_COINS = [
   { label: 'SILVER COIN 999 1 KG',    grams: 1000, premium: 5000 },
 ];
 
-function renderSilverCoins(silverProducts) {
+function renderSilverCoins(silverBase) {
   const container = dom.silverCoinBox;
   if (!container) return;
 
-  /* Base: SILVER PETI RTGS Buy ÷ 1000 = 1g rate */
-  const baseRow  = findProductByName(silverProducts, 'SILVER PETI RTGS');
-  const base1kg  = baseRow ? toNum(baseRow.bid) : null;
-  const base1g   = base1kg !== null ? base1kg / 1000 : null;
+  const base1kg = toNum(silverBase);
+  const base1g  = base1kg !== null ? base1kg / 1000 : null;
 
   const table = container.querySelector('.coin-table');
   const tbody = table ? table.querySelector('tbody') : null;
@@ -370,11 +357,11 @@ function renderAll(data) {
   renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');
 
   /* Karat rates */
-  renderKaratRates(data?.goldProducts);
+  renderKaratRates(data?.goldBase);
 
   /* Coin rates */
-  renderGoldCoins(data?.goldProducts);
-  renderSilverCoins(data?.silverProducts);
+  renderGoldCoins(data?.goldBase);
+  renderSilverCoins(data?.silverBase);
 
   /* Advance previous-state */
   prev.goldProducts   = updatePrevMap(data?.goldProducts);

@@ -112,6 +112,13 @@ function visibleProducts(rows, sourceKey) {
     .filter(Boolean);
 }
 
+/* Search full raw Rate array by Name field (case-insensitive, ignores IsDisplay) */
+function findRawByName(rows, name) {
+  if (!Array.isArray(rows)) return null;
+  const target = String(name).trim().toLowerCase();
+  return rows.find(r => String(r?.Name ?? '').trim().toLowerCase() === target) || null;
+}
+
 /* ── Feed handler (unchanged from Reference) ── */
 function handleFeed(sourceKey, data) {
   try {
@@ -207,7 +214,24 @@ function buildRows(symbols) {
     .filter(Boolean);
 }
 
-/* ── Payload builder (unchanged from Reference) ── */
+/* ── Base-rate finders for karat/coin calculations ── */
+function getGoldBase() {
+  /* Search full Gopnath raw Rate array for 999 IMP RTGS — ignores IsDisplay */
+  const raw = findRawByName(state.gopnath.live, '999 IMP RTGS');
+  if (raw) return toNum(raw.Bid ?? raw.Buy);
+  /* Fallback: summary gold bid from live map */
+  const g = chooseRaw('gold');
+  return g ? toNum(g.Bid ?? g.Buy) : null;
+}
+
+function getSilverBase() {
+  /* Search full Swayam raw Rate array for SILVER PETI RTGS — ignores IsDisplay */
+  const raw = findRawByName(state.swayam.live, 'SILVER PETI RTGS');
+  if (raw) return toNum(raw.Bid ?? raw.Buy);
+  return null;
+}
+
+/* ── Payload builder ── */
 function buildPayload() {
   return {
     updatedAt: state.swayam.lastSeen || state.gopnath.lastSeen || null,
@@ -223,6 +247,9 @@ function buildPayload() {
     silverProducts: state.swayam.products,
     futureRows: buildRows(['gold', 'silver', 'goldnext', 'silvernext']),
     spotRows: buildRows(['xauusd', 'xagusd', 'inrspot']),
+    /* Explicit base rates for karat/coin calculations (from full raw data, not just visible rows) */
+    goldBase: getGoldBase(),
+    silverBase: getSilverBase(),
   };
 }
 

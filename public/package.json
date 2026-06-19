@@ -1,0 +1,14 @@
+{
+  "name": "mahakali-jewellers",
+  "version": "1.0.0",
+  "description": "Mahakali Jewellers live bullion rate dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
+  }
+}

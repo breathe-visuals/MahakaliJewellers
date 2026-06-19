@@ -70,23 +70,26 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   padding: 12px 20px;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: 12px;
 }
 .header-logo {
   height: 60px;
   width: auto;
+  max-width: 220px;
   object-fit: contain;
   display: block;
   transition: height 0.3s ease;
+  justify-self: center;   /* center in grid column 2 */
 }
 .header-status {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+  justify-self: end;      /* push to right edge */
 }
 
 /* ---------- MARQUEE ---------- */
@@ -97,17 +100,34 @@ body {
 .marquee-bar {
   display: flex;
   align-items: center;
-  padding: 9px 16px;
-  font-size: 0.95rem;
+  padding: 8px 16px;
+  font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--gold);
   overflow: hidden;
   will-change: contents;
+  gap: 12px;
 }
 .marquee-bar marquee {
+  flex: 1;
+  min-width: 0;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
+}
+/* Live clock badge in the marquee bar */
+.marquee-clock {
+  flex-shrink: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 2px 11px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: 0.03em;
 }
 
 /* ---------- STATUS DOT & TIMER ---------- */
@@ -123,7 +143,7 @@ body {
 .status-dot.live        { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.25); }
 .status-dot.disconnected { background: #ef4444; }
 .last-updated {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   color: rgba(255,255,255,0.85);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -183,7 +203,7 @@ body {
 
 /* ---------- PAGE TITLE ---------- */
 .page-title {
-  font-size: 1.6rem;
+  font-size: 1.75rem;
   font-weight: 900;
   color: var(--brand);
   letter-spacing: -0.02em;
@@ -202,7 +222,7 @@ body {
   flex-wrap: wrap;
 }
 .section-title {
-  font-size: 1.15rem;
+  font-size: 1.25rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -245,14 +265,14 @@ body {
 }
 .karat-label {
   font-family: 'Oswald', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--brand);
   letter-spacing: 0.04em;
   line-height: 1;
 }
 .karat-purity {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.04em;
@@ -260,7 +280,7 @@ body {
 }
 .karat-price {
   font-family: 'Oswald', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1.22rem;
   font-weight: 700;
   color: var(--gold-dark);
   font-variant-numeric: tabular-nums;
@@ -271,7 +291,7 @@ body {
 .karat-price.up   { color: var(--up-fg); }
 .karat-price.down { color: var(--down-fg); }
 .karat-unit {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 0.04em;
@@ -390,7 +410,7 @@ body {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.92rem;
+  font-size: 1rem;
   table-layout: fixed;
   font-variant-numeric: tabular-nums;
 }
@@ -404,7 +424,7 @@ th:nth-child(5), td:nth-child(5) { width: 18%; }
 thead th {
   padding: 12px 10px;
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -415,12 +435,12 @@ thead th {
 }
 
 tbody td {
-  padding: 10px 8px;
+  padding: 11px 8px;
   border-bottom: 1px solid rgba(217,178,95,0.15);
   vertical-align: middle;
   white-space: nowrap;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(0,51,54,0.035); }
@@ -428,7 +448,7 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 .rowhead {
   font-weight: 800;
   color: var(--text);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-family: 'Oswald', sans-serif;
   letter-spacing: 0.02em;
   white-space: normal;
@@ -440,12 +460,12 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 3px 7px;
+  padding: 4px 8px;
   border-radius: 999px;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-family: 'Oswald', sans-serif;
   font-weight: 700;
-  min-width: 48px;
+  min-width: 54px;
   font-variant-numeric: tabular-nums;
   transition: background 0.3s, color 0.3s;
 }
@@ -678,6 +698,15 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   border: 2px solid transparent;
 }
 .whatsapp-btn:hover { opacity: 0.9; }
+/* Share rates button — same green as WhatsApp */
+.share-btn {
+  background: #25d366;
+  color: #fff;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.share-btn:hover    { opacity: 0.9; }
+.share-btn:disabled { opacity: 0.6; cursor: wait; }
 
 /* ---------- BOTTOM NAV INNER ---------- */
 .bottom-nav-inner {

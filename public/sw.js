@@ -1,11 +1,11 @@
 /* ================================================================
-   sw.js – Jewellery Live Rates Platform  v3
+   sw.js – Jewellery Live Rates Platform  v5
    ─ Shell assets cached for offline capability
    ─ /api/* and /socket.io/* are NEVER intercepted
    ─ /api/config is network-first (config changes must propagate)
    ================================================================ */
 
-const CACHE_NAME = 'jewellers-shell-v3';
+const CACHE_NAME = 'jewellers-shell-v5';
 
 const SHELL_ASSETS = [
   '/',

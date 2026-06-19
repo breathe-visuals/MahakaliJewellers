@@ -259,7 +259,7 @@ function buildPayload() {
     },
     goldProducts:   state.gopnath.products,
     silverProducts: state.swayam.products,
-    futureRows: buildRows(['gold', 'silver', 'goldnext', 'silvernext']),
+    futureRows: buildRows(['gold', 'silver']),
     spotRows:   buildRows(['xauusd', 'xagusd', 'inrspot']),
     /* Config-driven base rates (Sell price of configured base rows) */
     goldBase:      getGoldBase(),

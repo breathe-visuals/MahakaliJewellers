@@ -114,14 +114,20 @@ function buildUI(cfg) {
   if (biz.favicon) q('favicon-ico')?.setAttribute('href', biz.favicon);
 
   /* ── Marquee ── */
+  /* ── Ticker bar (always shown, scroll text optional) ── */
+  const track = q('ticker-track');
+  const mt    = q('marquee-text');
   if (feat.showMarquee !== false && site.marquee?.enabled !== false) {
-    const mw = q('marquee-wrap');
-    const mt = q('marquee-text');
-    if (mw) mw.style.display = '';
-    if (mt) mt.textContent = site.marquee?.text || '';
-    document.documentElement.style.setProperty('--marquee-h', '34px');
+    const raw = site.marquee?.text || '';
+    /* Duplicate text for seamless CSS animation loop */
+    if (mt) mt.textContent = raw + '\u00a0\u00a0\u00a0\u2022\u00a0\u00a0\u00a0' + raw;
+    if (track) track.style.display = '';
   }
-  startLiveClock(); /* always run — shows time in marquee bar */
+  /* marquee-wrap is always visible (holds clock + status) */
+  const mw = q('marquee-wrap');
+  if (mw) mw.style.display = '';
+
+  startLiveClock();
 
   /* ── Connection status visibility ── */
   if (feat.showConnectionStatus === false) q('status')?.style?.setProperty?.('display','none');
@@ -161,17 +167,26 @@ function buildUI(cfg) {
 /* ================================================================
    NAV BUILDERS
    ================================================================ */
+/* ── SVG icon library (emoji-free) ────────────────────────────── */
+const ICONS = {
+  gold:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M6 9V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="2" y1="14" x2="22" y2="14"/></svg>`,
+  silver: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  coins:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><line x1="9.68" y1="14.68" x2="11.41" y2="12.97"/></svg>`,
+  phone:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.97-.97a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>`,
+  share:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+};
+
 const PAGE_META = {
-  gold:   { label: 'Gold Rates',   bnav: 'Gold',   icon: '⚜' },
-  silver: { label: 'Silver Rates', bnav: 'Silver', icon: '◈' },
-  coins:  { label: 'Coin Rates',   bnav: 'Coins',  icon: '🪙' },
+  gold:   { label: 'Gold Rates',   bnav: 'Gold',   icon: ICONS.gold   },
+  silver: { label: 'Silver Rates', bnav: 'Silver', icon: ICONS.silver },
+  coins:  { label: 'Coin Rates',   bnav: 'Coins',  icon: ICONS.coins  },
 };
 
 function buildDesktopNav(pages) {
   const inner = q('desktop-nav-inner');
   if (!inner) return;
   inner.innerHTML = pages.map((id, i) => {
-    const m = PAGE_META[id] || { label: id, icon: '•' };
+    const m = PAGE_META[id] || { label: id, icon: '' };
     return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
       aria-pressed="${i===0}" onclick="switchPage('${id}')">
       <span class="dnav-icon">${m.icon}</span> ${m.label}
@@ -183,7 +198,7 @@ function buildBottomNav(pages) {
   const inner = q('bottom-nav-inner');
   if (!inner) return;
   inner.innerHTML = pages.map((id, i) => {
-    const m = PAGE_META[id] || { label: id, bnav: id, icon: '•' };
+    const m = PAGE_META[id] || { label: id, bnav: id, icon: '' };
     return `<button class="bnav-btn${i===0?' active':''}" id="bnav-${id}"
       aria-label="${m.label}" onclick="switchPage('${id}')">
       <span class="bnav-icon">${m.icon}</span>
@@ -385,9 +400,7 @@ function buildCoinsPage(admin) {
 }
 
 /* ================================================================
-   CONTACT BAR — sticky phone + Share from config
-   WhatsApp "Share" button generates a PNG image of current rates
-   and shares it via Web Share API (includes WhatsApp, Telegram, etc.)
+   CONTACT BAR — sticky call + share-image button (from config)
    ================================================================ */
 function buildContactBar(biz, footerCfg) {
   const bar = q('contact-bar');
@@ -400,68 +413,48 @@ function buildContactBar(biz, footerCfg) {
   let html = '';
   if (showPhone) {
     html += `<a href="tel:${biz.phone}" class="contact-btn phone-btn" aria-label="Call us">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4
-          1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4
-          0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6
-          3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
-      </svg>
-      Call
+      ${ICONS.phone} Call
     </a>`;
   }
   if (showShare) {
-    /* Share button — generates PNG and opens Web Share (WhatsApp/Telegram/etc.) */
     html += `<button class="contact-btn share-btn" onclick="shareRates()" aria-label="Share live rates">
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7
-          s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34
-          3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31
-          6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81
-          l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92
-          1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-      </svg>
-      Share Rates
+      ${ICONS.share} Share Rates
     </button>`;
   }
 
   bar.innerHTML = html;
   bar.style.display = 'flex';
-  /* Expand body bottom padding to clear contact bar + bottom nav */
   document.documentElement.style.setProperty('--contact-h', '60px');
 }
 
 /* ================================================================
-   FOOTER — built from config
+   FOOTER — built from config (SVG icons, no emoji)
    ================================================================ */
 function buildFooter(biz, footerCfg, socials) {
   const el = q('site-footer');
   if (!el) return;
 
-  let html = `<p>${esc(footerCfg?.copyright || `© ${biz?.name || 'Jewellers'}`)}</p>`;
+  let html = `<p>${esc(footerCfg?.copyright || `\u00a9 ${biz?.name || 'Jewellers'}`)}</p>`;
 
   if (footerCfg?.showPhone !== false && biz?.phone) {
     html += `<p class="footer-contact">
-      📞 <a href="tel:${biz.phone}">${esc(biz.phone)}</a>
+      ${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a>
     </p>`;
   }
   if (footerCfg?.showWhatsapp !== false && biz?.whatsapp) {
-    const num = String(biz.whatsapp).replace(/[^0-9]/g, '');
     html += `<p class="footer-contact">
-      <a href="https://wa.me/${num}" target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>
+      ${ICONS.share} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a>
     </p>`;
   }
-  if (footerCfg?.showEmail && biz?.email) {
-    html += `<p class="footer-contact"><a href="mailto:${biz.email}">${esc(biz.email)}</a></p>`;
-  }
-  if (footerCfg?.showAddress && biz?.address) {
+  if (footerCfg?.showAddress !== false && biz?.address) {
     html += `<p class="footer-address">${esc(biz.address)}</p>`;
   }
 
   const links = [];
-  if (socials?.instagram) links.push(`<a href="${esc(socials.instagram)}" target="_blank" rel="noopener noreferrer">Instagram</a>`);
-  if (socials?.facebook)  links.push(`<a href="${esc(socials.facebook)}"  target="_blank" rel="noopener noreferrer">Facebook</a>`);
-  if (socials?.website)   links.push(`<a href="${esc(socials.website)}"   target="_blank" rel="noopener noreferrer">Website</a>`);
-  if (links.length) html += `<p class="footer-socials">${links.join(' &nbsp;·&nbsp; ')}</p>`;
+  if (socials?.instagram) links.push(`<a href="${esc(socials.instagram)}" target="_blank" rel="noopener">Instagram</a>`);
+  if (socials?.facebook)  links.push(`<a href="${esc(socials.facebook)}"  target="_blank" rel="noopener">Facebook</a>`);
+  if (socials?.website)   links.push(`<a href="${esc(socials.website)}"   target="_blank" rel="noopener">Website</a>`);
+  if (links.length) html += `<div class="footer-socials">${links.join('')}</div>`;
 
   el.innerHTML = html;
 }
@@ -849,17 +842,60 @@ function startLiveClock() {
 }
 
 /* ================================================================
-   SHARE RATES — generates a PNG rate-card and shares it
-   Uses Web Share API (supports WhatsApp, Telegram, etc.)
-   Falls back to direct file download
+   SHARE RATES — shows page picker, then generates a PNG rate-card
    ================================================================ */
-async function shareRates() {
-  const btn = document.querySelector('.share-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+function shareRates() {
+  document.querySelector('.share-overlay')?.remove();
+  const pages = CFG?.admin?.pages || {};
+  const opts  = [];
+  if (pages.gold   !== false) opts.push({ id:'gold',   label:'Gold Rates',   icon: ICONS.gold   });
+  if (pages.silver !== false) opts.push({ id:'silver', label:'Silver Rates', icon: ICONS.silver });
+  if (pages.coins  !== false) opts.push({ id:'coins',  label:'Coin Rates',   icon: ICONS.coins  });
 
+  const overlay = document.createElement('div');
+  overlay.className = 'share-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal">
+      <h3 class="share-modal-title">Share Rate Card</h3>
+      <p class="share-modal-sub">Choose which rates to share as an image:</p>
+      <div class="share-opts">
+        ${opts.map(o => `
+          <button class="share-opt-btn" id="sopt-${o.id}" onclick="doSharePage('${o.id}')">
+            <span class="share-opt-icon">${o.icon}</span>
+            <span>${o.label}</span>
+          </button>`).join('')}
+      </div>
+      <button class="share-cancel-btn" onclick="document.querySelector('.share-overlay')?.remove()">Cancel</button>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function doSharePage(pageId) {
+  const btn = document.getElementById('sopt-' + pageId);
+  const lbl = btn?.querySelector('span:last-child');
+  if (btn) { btn.disabled = true; if (lbl) lbl.textContent = 'Generating…'; }
   try {
-    const blob = await generateRateImage();
-    if (!blob) throw new Error('canvas empty');
+    const blob = await generateRateImage(pageId);
+    if (!blob) throw new Error('empty');
+    document.querySelector('.share-overlay')?.remove();
+    const biz   = CFG?.site?.business || {};
+    const fname = `${(biz.name||'rates').replace(/\s+/g,'-')}-${pageId}-${new Date().toISOString().slice(0,10)}.png`;
+    const file  = new File([blob], fname, { type: 'image/png' });
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: `${biz.name||'Live Rates'} \u2013 ${pageId}` });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 8000);
+    }
+  } catch(err) {
+    if (err.name !== 'AbortError') document.querySelector('.share-overlay')?.remove();
+  }
+}
+
 
     const biz  = CFG?.site?.business || {};
     const fname = `${(biz.name || 'rates').replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.png`;
@@ -890,225 +926,175 @@ async function shareRates() {
 }
 
 /* ================================================================
-   GENERATE RATE IMAGE — draws a branded PNG using Canvas API
-   Returns a Promise<Blob|null>
+   GENERATE RATE IMAGE — page-specific branded PNG (Canvas API)
+   pageId: 'gold' | 'silver' | 'coins'
    ================================================================ */
-async function generateRateImage() {
+async function generateRateImage(pageId) {
   const site  = CFG?.site  || {};
   const admin = CFG?.admin || {};
   const biz   = site.business || {};
   const theme = site.theme   || {};
   const data  = lastRatesData || {};
+  const BRAND = theme.primaryColor || '#003336';
+  const GOLD  = theme.accentColor  || '#D9B25F';
+  const W=900, PAD=36, RLINE=44;
 
-  const BRAND  = theme.primaryColor || '#003336';
-  const GOLD   = theme.accentColor  || '#D9B25F';
-  const W      = 800;
-  const PAD    = 30;
-  const RLINE  = 36; /* table row height */
+  const isGold=pageId==='gold', isSilver=pageId==='silver', isCoins=pageId==='coins';
+  const karats   = isGold   ? (admin.goldRates?.karats||[]) : [];
+  const goldBase = isGold   ? toNum(data.goldBase)          : null;
+  const goldProds= isGold   ? (data.goldProducts  ||[]).slice(0,8) : [];
+  const silvProds= isSilver ? (data.silverProducts||[]).slice(0,8) : [];
+  const gcRows   = isCoins  ? (admin.goldCoins?.rows  ||[]) : [];
+  const scRows   = isCoins  ? (admin.silverCoins?.rows||[]) : [];
+  const gcBase   = isCoins  ? toNum(data.goldCoinBase)   : null;
+  const scBase   = isCoins  ? toNum(data.silverCoinBase) : null;
+  const gcDiv    = admin.goldCoins?.divisor   || 10;
+  const scDiv    = admin.silverCoins?.divisor || 1000;
 
-  const karats    = admin.goldRates?.karats || [];
-  const goldBase  = toNum(data.goldBase);
-  const goldProds = (data.goldProducts   || []).slice(0, 8);
-  const silvProds = (data.silverProducts || []).slice(0, 6);
+  let H=170;
+  if(karats.length&&goldBase!==null) H+=55+Math.ceil(karats.length/4)*104+20;
+  if(goldProds.length) H+=55+(goldProds.length+1)*RLINE;
+  if(silvProds.length) H+=55+(silvProds.length+1)*RLINE;
+  if(gcRows.length)    H+=55+(gcRows.length+1)*RLINE;
+  if(scRows.length)    H+=55+(scRows.length+1)*RLINE;
+  H+=96; H=Math.max(H,600);
 
-  /* ── Dynamic height ── */
-  let H = 150; /* header */
-  if (karats.length && goldBase !== null) H += 50 + Math.ceil(karats.length / 4) * 92 + 16;
-  if (goldProds.length) H += 50 + (goldProds.length + 1) * RLINE;
-  if (silvProds.length) H += 50 + (silvProds.length + 1) * RLINE;
-  H += 80; /* footer */
-  H = Math.max(H, 600);
-
-  const canvas = document.createElement('canvas');
-  canvas.width  = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  /* ── Background ── */
-  ctx.fillStyle = BRAND;
-  ctx.fillRect(0, 0, W, H);
-
-  /* Subtle diagonal lines */
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth   = 1;
-  for (let d = -H; d < W + H; d += 32) {
-    ctx.beginPath(); ctx.moveTo(d, 0); ctx.lineTo(d + H, H); ctx.stroke();
-  }
+  const canvas=document.createElement('canvas');
+  canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle=BRAND; ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.022)'; ctx.lineWidth=1;
+  for(let d=-H;d<W+H;d+=38){ctx.beginPath();ctx.moveTo(d,0);ctx.lineTo(d+H,H);ctx.stroke();}
   ctx.restore();
+  let y=PAD;
 
-  let y = PAD;
-
-  /* ── Load logo (3-second timeout, fail silently) ── */
-  let logoImg = null;
-  if (biz.logo) {
-    try {
-      logoImg = await Promise.race([
-        new Promise((res, rej) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          img.onload  = () => res(img);
-          img.onerror = rej;
-          img.src = biz.logo;
-        }),
-        new Promise((_, rej) => setTimeout(rej, 3000)),
+  let logoImg=null;
+  if(biz.logo){
+    try{
+      logoImg=await Promise.race([
+        new Promise((res,rej)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=rej;i.src=biz.logo;}),
+        new Promise((_,rej)=>setTimeout(rej,3000)),
       ]);
-    } catch {}
+    }catch{}
   }
 
-  /* ── Header ── */
-  if (logoImg) {
-    const lh = 72, lw = Math.min((logoImg.naturalWidth / logoImg.naturalHeight) * lh, 180);
-    ctx.drawImage(logoImg, PAD, y, lw, lh);
-    ctx.fillStyle = GOLD;
-    ctx.font = 'bold 28px Inter, Arial, sans-serif';
-    ctx.fillText(biz.name || 'Live Rates', PAD + lw + 14, y + 32);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '14px Inter, Arial, sans-serif';
-    ctx.fillText(biz.tagline || 'Live Bullion Rates', PAD + lw + 14, y + 56);
-  } else {
-    ctx.fillStyle = GOLD;
-    ctx.font = 'bold 34px Inter, Arial, sans-serif';
-    ctx.fillText(biz.name || 'Live Rates', PAD, y + 44);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '15px Inter, Arial, sans-serif';
-    ctx.fillText(biz.tagline || 'Live Bullion Rates', PAD, y + 70);
+  if(logoImg){
+    const lh=84,lw=Math.min((logoImg.naturalWidth/logoImg.naturalHeight)*lh,210);
+    ctx.drawImage(logoImg,PAD,y,lw,lh);
+    ctx.fillStyle=GOLD;ctx.font='bold 34px Inter,Arial,sans-serif';
+    ctx.fillText(biz.name||'Live Rates',PAD+lw+18,y+38);
+    ctx.fillStyle='rgba(255,255,255,0.48)';ctx.font='15px Inter,Arial,sans-serif';
+    ctx.fillText(biz.tagline||'Live Bullion Rates',PAD+lw+18,y+66);
+  }else{
+    ctx.fillStyle=GOLD;ctx.font='bold 40px Inter,Arial,sans-serif';
+    ctx.fillText(biz.name||'Live Rates',PAD,y+52);
+    ctx.fillStyle='rgba(255,255,255,0.48)';ctx.font='16px Inter,Arial,sans-serif';
+    ctx.fillText(biz.tagline||'Live Bullion Rates',PAD,y+80);
   }
 
-  /* Date + Time on right */
-  const now     = new Date();
-  const dateStr = now.toLocaleDateString('en-IN',  { day:'2-digit', month:'short', year:'numeric' });
-  const timeStr = now.toLocaleTimeString('en-IN',  { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  ctx.textAlign = 'right';
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = '13px Inter, Arial, sans-serif';
-  ctx.fillText(dateStr, W - PAD, y + 28);
-  ctx.fillStyle = GOLD;
-  ctx.font = 'bold 22px Inter, Arial, sans-serif';
-  ctx.fillText(timeStr, W - PAD, y + 58);
-  ctx.textAlign = 'left';
+  const now=new Date();
+  ctx.textAlign='right';
+  ctx.fillStyle='rgba(255,255,255,0.42)';ctx.font='14px Inter,Arial,sans-serif';
+  ctx.fillText(now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}),W-PAD,y+32);
+  ctx.fillStyle=GOLD;ctx.font='bold 28px Inter,Arial,sans-serif';
+  ctx.fillText(now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),W-PAD,y+68);
+  ctx.textAlign='left'; y+=112;
 
-  y += 100;
+  const grd=ctx.createLinearGradient(PAD,0,W-PAD,0);
+  grd.addColorStop(0,'transparent');grd.addColorStop(0.18,GOLD);grd.addColorStop(0.82,GOLD);grd.addColorStop(1,'transparent');
+  ctx.fillStyle=grd;ctx.fillRect(PAD,y,W-PAD*2,2);y+=20;
 
-  /* Divider */
-  const grd = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
-  grd.addColorStop(0,   'transparent');
-  grd.addColorStop(0.2, GOLD);
-  grd.addColorStop(0.8, GOLD);
-  grd.addColorStop(1,   'transparent');
-  ctx.fillStyle = grd;
-  ctx.fillRect(PAD, y, W - PAD * 2, 2);
-  y += 16;
-
-  /* ── Karat rates ── */
-  if (karats.length && goldBase !== null) {
-    ctx.fillStyle = GOLD;
-    ctx.font = 'bold 15px Inter, Arial, sans-serif';
-    ctx.fillText(`KARAT RATES  (per 10g)  —  Base: ${admin.goldRates?.baseRow || '999 IMP RTGS'} Sell`, PAD, y + 18);
-    y += 32;
-
-    const cols  = Math.min(karats.length, 4);
-    const cardW = Math.floor((W - PAD * 2 - (cols - 1) * 8) / cols);
-    const cardH = 84;
-
-    karats.forEach((k, i) => {
-      const col = i % cols, row = Math.floor(i / cols);
-      const cx  = PAD + col * (cardW + 8);
-      const cy  = y   + row * (cardH + 8);
-
-      /* Card background */
-      ctx.fillStyle = 'rgba(255,255,255,0.07)';
-      imgRoundRect(ctx, cx, cy, cardW, cardH, 8); ctx.fill();
-      /* Gold stripe */
-      ctx.fillStyle = GOLD;
-      imgRoundRect(ctx, cx, cy, cardW, 4, 8); ctx.fill();
-
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255,255,255,0.88)';
-      ctx.font = 'bold 20px Inter, Arial, sans-serif';
-      ctx.fillText(k.name, cx + cardW / 2, cy + 34);
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '11px Inter, Arial, sans-serif';
-      ctx.fillText(k.purity || '', cx + cardW / 2, cy + 50);
-      ctx.fillStyle = GOLD;
-      ctx.font = 'bold 16px Inter, Arial, sans-serif';
-      ctx.fillText('₹' + Math.round(goldBase * k.multiplier).toLocaleString('en-IN'), cx + cardW / 2, cy + 72);
-      ctx.textAlign = 'left';
+  if(karats.length&&goldBase!==null){
+    ctx.fillStyle=GOLD;ctx.font='bold 18px Inter,Arial,sans-serif';
+    ctx.fillText('KARAT RATES  (per 10g)',PAD,y+22);
+    ctx.fillStyle='rgba(255,255,255,0.32)';ctx.font='13px Inter,Arial,sans-serif';
+    ctx.textAlign='right';
+    ctx.fillText('Base: '+(admin.goldRates?.baseRow||'999 IMP')+' Sell',W-PAD,y+22);
+    ctx.textAlign='left';y+=36;
+    const cols=Math.min(karats.length,4);
+    const cardW=Math.floor((W-PAD*2-(cols-1)*10)/cols),cardH=96;
+    karats.forEach((k,i)=>{
+      const col=i%cols,row=Math.floor(i/cols);
+      const cx=PAD+col*(cardW+10),cy=y+row*(cardH+10);
+      ctx.fillStyle='rgba(255,255,255,0.07)';imgRoundRect(ctx,cx,cy,cardW,cardH,10);ctx.fill();
+      ctx.fillStyle=GOLD;imgRoundRect(ctx,cx,cy,cardW,5,10);ctx.fill();
+      const price=Math.round(goldBase*k.multiplier);
+      ctx.textAlign='center';
+      ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='bold 24px Inter,Arial,sans-serif';
+      ctx.fillText(k.name,cx+cardW/2,cy+40);
+      ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='12px Inter,Arial,sans-serif';
+      ctx.fillText(k.purity||'',cx+cardW/2,cy+58);
+      ctx.fillStyle=GOLD;ctx.font='bold 22px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),cx+cardW/2,cy+84);
+      ctx.textAlign='left';
     });
-
-    y += Math.ceil(karats.length / cols) * (cardH + 8) + 12;
-    ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    ctx.fillRect(PAD, y, W - PAD * 2, 1);
-    y += 14;
+    y+=Math.ceil(karats.length/cols)*(cardH+10)+16;
+    ctx.fillStyle='rgba(255,255,255,0.07)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
   }
 
-  /* ── Table helper ── */
-  function drawProdTable(title, titleCol, rows) {
-    if (!rows.length) return;
-    ctx.fillStyle = titleCol;
-    ctx.font = 'bold 14px Inter, Arial, sans-serif';
-    ctx.fillText(title, PAD, y + 18);
-    y += 28;
-
-    /* Header */
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
-    ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = 'bold 11px Inter, Arial, sans-serif';
-    const C = { nm: PAD+6, buy: W-PAD-230, sell: W-PAD-130, high: W-PAD-50, low: W-PAD };
-    ctx.fillText('PRODUCT', C.nm,   y + 23);
-    ctx.textAlign = 'right';
-    ctx.fillText('BUY',  C.buy,  y + 23);
-    ctx.fillText('SELL', C.sell, y + 23);
-    ctx.fillText('HIGH', C.high, y + 23);
-    ctx.fillText('LOW',  C.low,  y + 23);
-    ctx.textAlign = 'left';
-    y += RLINE;
-
-    rows.forEach((p, i) => {
-      if (i % 2 === 1) {
-        ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
-      }
-      const nm = String(p.name || p.symbol || '').substring(0, 24);
-      ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.font = '13px Inter, Arial, sans-serif';
-      ctx.fillText(nm, C.nm, y + 23);
-      ctx.textAlign = 'right'; ctx.font = 'bold 13px Inter, Arial, sans-serif';
-      if (p.bid  != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid),  C.buy,  y + 23); }
-      if (p.ask  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask),  C.sell, y + 23); }
-      if (p.high != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.high), C.high, y + 23); }
-      if (p.low  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.low),  C.low,  y + 23); }
-      ctx.textAlign = 'left';
-      y += RLINE;
+  function drawProdTable(title,titleCol,rows){
+    if(!rows.length)return;
+    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
+    ctx.fillText(title,PAD,y+22);y+=36;
+    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
+    const C={nm:PAD+10,buy:W-PAD-260,sell:W-PAD-145,high:W-PAD-55,low:W-PAD};
+    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
+    ctx.fillText('PRODUCT',C.nm,y+28);ctx.textAlign='right';
+    ctx.fillText('BUY',C.buy,y+28);ctx.fillText('SELL',C.sell,y+28);
+    ctx.fillText('HIGH',C.high,y+28);ctx.fillText('LOW',C.low,y+28);
+    ctx.textAlign='left';y+=RLINE;
+    rows.forEach((p,i)=>{
+      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
+      ctx.fillStyle='rgba(255,255,255,0.82)';ctx.font='14px Inter,Arial,sans-serif';
+      ctx.fillText(String(p.name||p.symbol||'').substring(0,26),C.nm,y+30);
+      ctx.textAlign='right';ctx.font='bold 16px Inter,Arial,sans-serif';
+      if(p.bid !=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.bid), C.buy, y+30);}
+      if(p.ask !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.ask), C.sell,y+30);}
+      if(p.high!=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.high),C.high,y+30);}
+      if(p.low !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.low), C.low, y+30);}
+      ctx.textAlign='left';y+=RLINE;
     });
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
-    ctx.fillRect(PAD, y, W - PAD * 2, 1);
-    y += 14;
+    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
+  }
+
+  function drawCoinTable(title,titleCol,rows,baseVal,divisor){
+    if(!rows.length||baseVal===null)return;
+    const base1u=baseVal/divisor;
+    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
+    ctx.fillText(title,PAD,y+22);y+=36;
+    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
+    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
+    ctx.fillText('PRODUCT',PAD+10,y+28);
+    ctx.textAlign='right';ctx.fillText('PRICE (\u20b9)',W-PAD,y+28);ctx.textAlign='left';y+=RLINE;
+    rows.forEach((c,i)=>{
+      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
+      const price=Math.round(base1u*c.grams+c.premium);
+      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='14px Inter,Arial,sans-serif';
+      ctx.fillText(String(c.name||'').substring(0,32),PAD+10,y+30);
+      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 20px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),W-PAD,y+30);
+      ctx.textAlign='left';y+=RLINE;
+    });
+    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
   }
 
   drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds);
+  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv);
+  drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv);
 
-  /* ── Footer ── */
-  const fy = Math.max(y + 10, H - 70);
-  ctx.fillStyle = GOLD;
-  ctx.fillRect(PAD, fy, W - PAD * 2, 1.5);
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.font = '12px Inter, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Rates are for reference only. Contact office for booking.', W / 2, fy + 22);
-  if (biz.phone) {
-    ctx.fillStyle = GOLD; ctx.font = 'bold 15px Inter, Arial, sans-serif';
-    ctx.fillText(`\uD83D\uDCDE ${biz.phone}`, W / 2, fy + 46);
-  }
-  ctx.fillStyle = 'rgba(255,255,255,0.2)';
-  ctx.font = '10px Inter, Arial, sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText('Generated by Live Rates Platform', W - PAD, H - 8);
-  ctx.textAlign = 'left';
+  const fy=Math.max(y+14,H-82);
+  ctx.fillStyle=GOLD;ctx.fillRect(PAD,fy,W-PAD*2,1.5);
+  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='13px Inter,Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('Rates are for reference only. Contact office for booking.',W/2,fy+26);
+  if(biz.phone){ctx.fillStyle=GOLD;ctx.font='bold 18px Inter,Arial,sans-serif';ctx.fillText(biz.phone,W/2,fy+54);}
+  ctx.fillStyle='rgba(255,255,255,0.17)';ctx.font='11px Inter,Arial,sans-serif';
+  ctx.textAlign='right';ctx.fillText('Generated by Live Rates Platform',W-PAD,H-10);ctx.textAlign='left';
 
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+  return new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
 }
+
 
 /* Rounded-rectangle path helper for Canvas (no ctx.roundRect needed) */
 function imgRoundRect(ctx, x, y, w, h, r) {

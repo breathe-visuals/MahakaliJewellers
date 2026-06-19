@@ -40,9 +40,9 @@
   --shadow-md:   0 8px 32px rgba(0,51,54,0.10);
   --shadow-lg:   0 16px 48px rgba(0,51,54,0.13);
 
-  --bnav-h:      68px;
-  --contact-h:   0px;   /* set to 60px by JS when contact bar is visible */
-  --header-h:    100px; /* site-header (logo only) */
+  --bnav-h:      76px;
+  --contact-h:   0px;   /* set to 52px by JS when contact bar is visible */
+  --header-h:    110px; /* site-header (logo only) */
   --marquee-h:   36px;  /* ticker bar (always visible) */
 }
 
@@ -77,10 +77,10 @@ body {
   align-items: center;
 }
 .header-logo {
-  height: 72px;
+  height: 90px;
   width: auto;
   max-width: 80vw;
-  max-width: min(80vw, 280px);
+  max-width: min(80vw, 320px);
   object-fit: contain;
   display: block;
   transition: height 0.3s ease;
@@ -175,9 +175,6 @@ body {
 /* ---------- DESKTOP NAV ---------- */
 .desktop-nav {
   display: none;
-  background: var(--brand);
-  border-bottom: 2px solid var(--gold);
-  position: sticky;
   top: calc(60px + env(safe-area-inset-top));
   z-index: 190;
 }
@@ -633,11 +630,11 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   border-top-color: var(--gold);
 }
 .bnav-icon {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   line-height: 1;
 }
 .bnav-label {
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -707,11 +704,11 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 11px 14px;
+  gap: 6px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 700;
   text-decoration: none;
   letter-spacing: 0.02em;
@@ -901,39 +898,39 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 
 /* Very small (\u2264360 px) */
 @media (max-width: 360px) {
-  .header-logo { height: 48px; }
+  .header-logo { height: 60px; }
   .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 5px; }
-  .karat-label { font-size: 1rem; }
-  .karat-price { font-size: 0.88rem; }
+  .karat-label { font-size: 1.05rem; }
+  .karat-price { font-size: 0.9rem; }
   .karat-purity { font-size: 0.55rem; }
-  .karat-card  { padding: 7px 4px; }
+  .karat-card  { padding: 8px 4px; }
   .chip-val    { padding: 2px 4px; font-size: 0.78rem; min-width: 0; }
   thead th     { font-size: 0.68rem; padding: 7px 4px; }
   tbody td     { font-size: 0.85rem; padding: 7px 4px; }
   .rowhead     { font-size: 0.8rem; }
-  .page        { padding: 10px 8px 16px; gap: 12px; }
-  .section     { gap: 8px; }
-  .marquee-clock  { font-size: 0.72rem; padding: 2px 6px; }
-  .last-updated   { font-size: 0.72rem; }
+  .page        { padding: 12px 10px 20px; gap: 14px; }
+  .section     { gap: 10px; }
+  .marquee-clock  { font-size: 0.75rem; padding: 2px 6px; }
+  .last-updated   { font-size: 0.75rem; }
 }
 
 /* Small mobile (361–480 px) */
 @media (min-width: 361px) and (max-width: 480px) {
-  .header-logo { height: 56px; }
-  .page        { padding: 12px 10px 18px; gap: 14px; }
-  .section     { gap: 10px; }
-  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 6px; }
-  .karat-card  { padding: 8px 5px; }
-  .karat-label { font-size: 1.15rem; }
-  .karat-price { font-size: 0.95rem; }
-  .karat-purity { font-size: 0.58rem; }
-  table        { font-size: 0.9rem; }
-  thead th     { font-size: 0.73rem; padding: 9px 5px; }
-  tbody td     { font-size: 0.93rem; padding: 9px 5px; }
-  .chip-val    { font-size: 0.84rem; min-width: 44px; padding: 3px 5px; }
-  .rowhead     { font-size: 0.86rem; }
-  .section-title { font-size: 1.05rem; }
-  .page-title  { font-size: 1.45rem; }
+  .header-logo { height: 72px; }
+  .page        { padding: 16px 14px 24px; gap: 18px; }
+  .section     { gap: 14px; }
+  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .karat-card  { padding: 10px 6px; }
+  .karat-label { font-size: 1.25rem; }
+  .karat-price { font-size: 1.05rem; }
+  .karat-purity { font-size: 0.6rem; }
+  table        { font-size: 0.95rem; }
+  thead th     { font-size: 0.75rem; padding: 10px 6px; }
+  tbody td     { font-size: 1rem; padding: 10px 6px; }
+  .chip-val    { font-size: 0.9rem; min-width: 48px; padding: 4px 6px; }
+  .rowhead     { font-size: 0.9rem; }
+  .section-title { font-size: 1.15rem; }
+  .page-title  { font-size: 1.6rem; }
 }
 
 /* Prevent body-level horizontal scroll */
@@ -941,5 +938,6 @@ html, body { overflow-x: hidden; }
 
 /* Desktop-nav sticky top — keep below header + ticker bar */
 @media (min-width: 992px) {
-  .desktop-nav { top: calc(var(--header-h, 100px) + 36px); }
+  .header-logo { height: 110px; }
+  .desktop-nav { top: calc(var(--header-h, 110px) + var(--marquee-h, 36px)); }
 }

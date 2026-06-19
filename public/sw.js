@@ -1,11 +1,11 @@
 /* ================================================================
-   sw.js – Jewellery Live Rates Platform  v5
-   ─ Shell assets cached for offline capability
-   ─ /api/* and /socket.io/* are NEVER intercepted
-   ─ /api/config is network-first (config changes must propagate)
+   sw.js – Jewellery Live Rates Platform  v6
+   ─ /api/config is network-first
+   ─ Navigation is network-first
+   ─ JS/CSS use Stale-While-Revalidate so normal refreshes work!
    ================================================================ */
 
-const CACHE_NAME = 'jewellers-shell-v5';
+const CACHE_NAME = 'jewellers-shell-v6';
 
 const SHELL_ASSETS = [
   '/',
@@ -65,17 +65,18 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* All other assets — cache-first, populate on first hit */
+  /* All other assets (JS, CSS, Images) — Stale-While-Revalidate */
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
+    caches.match(event.request).then(cachedResponse => {
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
-        return response;
-      }).catch(() => cached);
+        return networkResponse;
+      }).catch(() => { /* ignore network errors */ });
+      
+      return cachedResponse || fetchPromise;
     })
   );
 });

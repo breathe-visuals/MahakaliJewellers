@@ -148,8 +148,11 @@ function buildUI(cfg) {
 
   /* ── Bind DOM refs after pages are in the DOM ── */
   dom = {
-    status:            q('status'),
-    lastUpdated:       q('lastUpdated'),
+    clock:        q('live-clock'),
+    status:       q('status'),
+    marqueeWrap:  q('marquee-wrap'),
+    tickerTrack:  q('ticker-track'),
+    marqueeText:  q('marquee-text'),
     futureBox:         q('futureBox'),
     spotBox:           q('spotBox'),
     goldProductsBox:   q('goldProductsBox'),
@@ -167,13 +170,13 @@ function buildUI(cfg) {
 /* ================================================================
    NAV BUILDERS
    ================================================================ */
-/* ── SVG icon library (emoji-free) ────────────────────────────── */
 const ICONS = {
   gold:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M6 9V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="2" y1="14" x2="22" y2="14"/></svg>`,
   silver: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
   coins:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><line x1="9.68" y1="14.68" x2="11.41" y2="12.97"/></svg>`,
   phone:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.97-.97a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>`,
   share:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+  whatsapp: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
 };
 
 const PAGE_META = {
@@ -213,7 +216,6 @@ function buildBottomNav(pages) {
 function buildPages(pages, admin, site) {
   const root = q('pages-root');
   if (!root) return;
-  const secs = admin.sections || {};
 
   const builders = {
     gold:   () => buildGoldPage(admin),
@@ -238,7 +240,6 @@ function buildGoldPage(admin) {
   const gr   = admin.goldRates || {};
   let h = `<h1 class="page-title">Gold Rates</h1>`;
 
-  /* Karat Rates — driven by admin-config.goldRates.karats[] */
   if (secs.karatRates !== false && gr.karats?.length) {
     const cards = gr.karats.map(k => `
       <div class="karat-card" id="karat-card-${kid(k.name)}">
@@ -258,7 +259,6 @@ function buildGoldPage(admin) {
     </section>`;
   }
 
-  /* Gold Products table */
   if (secs.goldProducts !== false) {
     h += `
     <section class="section" aria-label="Gold Products">
@@ -274,7 +274,6 @@ function buildGoldPage(admin) {
     </section>`;
   }
 
-  /* Market Rates slider — future + spot */
   const showF = secs.futureRates !== false;
   const showS = secs.spotRates   !== false;
   if (showF || showS) {
@@ -340,7 +339,7 @@ function buildSilverPage(admin) {
   return h;
 }
 
-/* ── Coins page — tabs + panels driven by config ── */
+/* ── Coins page ── */
 function buildCoinsPage(admin) {
   const gc = admin.goldCoins   || {};
   const sc = admin.silverCoins || {};
@@ -350,7 +349,6 @@ function buildCoinsPage(admin) {
   let h = `<h1 class="page-title">Coin Rates</h1>`;
   if (!hasGold && !hasSilver) return h + '<p class="empty-msg">No coin rows configured in admin-config.json</p>';
 
-  /* Tab bar */
   const tabs = [];
   if (hasGold)   tabs.push({ id: 'goldcoin',   label: 'Gold Coin',   icon: '⚜' });
   if (hasSilver) tabs.push({ id: 'silvercoin', label: 'Silver Coin', icon: '◈' });
@@ -364,7 +362,6 @@ function buildCoinsPage(admin) {
       </button>`).join('')}
   </div>`;
 
-  /* Gold coin panel */
   if (hasGold) {
     h += `
     <div class="coin-panel" id="panel-goldcoin" role="tabpanel" aria-labelledby="tab-goldcoin">
@@ -380,7 +377,6 @@ function buildCoinsPage(admin) {
     </div>`;
   }
 
-  /* Silver coin panel */
   if (hasSilver) {
     h += `
     <div class="coin-panel${hasGold ? ' hidden' : ''}" id="panel-silvercoin" role="tabpanel" aria-labelledby="tab-silvercoin">
@@ -400,7 +396,7 @@ function buildCoinsPage(admin) {
 }
 
 /* ================================================================
-   CONTACT BAR — sticky call + share-image button (from config)
+   CONTACT BAR
    ================================================================ */
 function buildContactBar(biz, footerCfg) {
   const bar = q('contact-bar');
@@ -415,10 +411,15 @@ function buildContactBar(biz, footerCfg) {
     html += `<a href="tel:${biz.phone}" class="contact-btn phone-btn" aria-label="Call us">
       ${ICONS.phone} Call
     </a>`;
+    if (biz.phone2) {
+      html += `<a href="tel:${biz.phone2}" class="contact-btn phone-btn" aria-label="Call us">
+        ${ICONS.phone} Call
+      </a>`;
+    }
   }
   if (showShare) {
     html += `<button class="contact-btn share-btn" onclick="shareRates()" aria-label="Share live rates">
-      ${ICONS.share} Share Rates
+      ${ICONS.whatsapp} Share Rates
     </button>`;
   }
 
@@ -428,7 +429,7 @@ function buildContactBar(biz, footerCfg) {
 }
 
 /* ================================================================
-   FOOTER — built from config (SVG icons, no emoji)
+   FOOTER
    ================================================================ */
 function buildFooter(biz, footerCfg, socials) {
   const el = q('site-footer');
@@ -437,14 +438,13 @@ function buildFooter(biz, footerCfg, socials) {
   let html = `<p>${esc(footerCfg?.copyright || `\u00a9 ${biz?.name || 'Jewellers'}`)}</p>`;
 
   if (footerCfg?.showPhone !== false && biz?.phone) {
-    html += `<p class="footer-contact">
-      ${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a>
-    </p>`;
+    html += `<p class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a></p>`;
+  }
+  if (footerCfg?.showPhone !== false && biz?.phone2) {
+    html += `<p class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone2}">${esc(biz.phone2)}</a></p>`;
   }
   if (footerCfg?.showWhatsapp !== false && biz?.whatsapp) {
-    html += `<p class="footer-contact">
-      ${ICONS.share} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a>
-    </p>`;
+    html += `<p class="footer-contact">${ICONS.whatsapp} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a></p>`;
   }
   if (footerCfg?.showAddress !== false && biz?.address) {
     html += `<p class="footer-address">${esc(biz.address)}</p>`;
@@ -516,13 +516,12 @@ function symbolLabel(sym, fallback) {
   return map[s] || fallback || s.toUpperCase();
 }
 
-/* Sanitise karat name to a safe CSS id fragment */
 function kid(name) {
   return String(name).toLowerCase().replace(/[^a-z0-9]/g, '-');
 }
 
 /* ================================================================
-   CHANGE DETECTION — 3-second linger highlight
+   CHANGE DETECTION
    ================================================================ */
 function dirClass(cur, prv, key) {
   const c = toNum(cur), p = toNum(prv);
@@ -536,7 +535,7 @@ function dirClass(cur, prv, key) {
 }
 
 /* ================================================================
-   TABLE RENDERING — incremental, no full rebuilds
+   TABLE RENDERING
    ================================================================ */
 function updateCell(el, current, previous, key, fixedClass = '') {
   if (!el) return;
@@ -609,9 +608,7 @@ function updatePrevMap(rows) {
 }
 
 /* ================================================================
-   KARAT RENDERER — driven by admin-config.goldRates.karats[]
-   goldBase = 999 IMP RTGS Sell (per 10g)
-   price    = Math.round(goldBase × multiplier)
+   KARAT RENDERER
    ================================================================ */
 function renderKaratRates(goldBase) {
   const base   = toNum(goldBase);
@@ -637,12 +634,7 @@ function renderKaratRates(goldBase) {
 }
 
 /* ================================================================
-   COIN TABLE RENDERER — config-driven rows, incremental updates
-   containerId  : id of the table-wrap div
-   configRows   : admin-config.goldCoins.rows or silverCoins.rows
-   baseVal      : goldCoinBase or silverCoinBase from server payload
-   divisor      : from admin-config (10 for gold, 1000 for silver)
-   prevKey      : key in the prev{} object for base tracking
+   COIN TABLE RENDERER
    ================================================================ */
 function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
   const container = q(containerId);
@@ -655,7 +647,6 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
   const tbody = table?.querySelector('tbody');
 
   if (!table || !tbody) {
-    /* First render — build full table */
     const rows = configRows.map((c, i) => {
       const price = base1u !== null ? Math.round(base1u * c.grams + c.premium) : null;
       return `<tr data-coin="${esc(c.name)}">
@@ -670,7 +661,6 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
     </table>`;
 
   } else {
-    /* Incremental update */
     configRows.forEach((c, i) => {
       const el = q(`${containerId}-r${i}`);
       if (!el) return;
@@ -693,45 +683,31 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
 }
 
 /* ================================================================
-   MASTER RENDER — called on every rates:update socket event
+   MASTER RENDER
    ================================================================ */
 function renderAll(data) {
   if (!CFG) return;
-  lastRatesData = data;           /* store latest snapshot for share-image */
+  lastRatesData = data;
   const admin = CFG.admin || {};
 
-  /* Product tables */
   renderTable(dom.goldProductsBox,   data?.goldProducts,   prev.goldProducts,   'mini');
   renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
 
-  /* Market rates (future + spot) */
   renderTable(dom.futureBox, data?.futureRows, prev.future, 'rate');
   renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');
 
-  /* Karat rates — goldBase from server (999 IMP RTGS Sell) */
   renderKaratRates(data?.goldBase);
 
-  /* Coin tables — divisor comes from admin-config */
   const goldDiv   = admin.goldCoins?.divisor   || 10;
   const silverDiv = admin.silverCoins?.divisor || 1000;
   renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   'goldCoinBase');
   renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, 'silverCoinBase');
 
-  /* Update prev maps */
   prev.goldProducts   = updatePrevMap(data?.goldProducts);
   prev.silverProducts = updatePrevMap(data?.silverProducts);
   prev.future         = updatePrevMap(data?.futureRows);
   prev.spot           = updatePrevMap(data?.spotRows);
 
-  /* Timestamp */
-  const ts = data?.updatedAt ? new Date(data.updatedAt) : null;
-  if (dom.lastUpdated) {
-    dom.lastUpdated.textContent = ts
-      ? ts.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
-      : '—';
-  }
-
-  /* Connection status */
   const live = data?.connected?.gopnath || data?.connected?.swayam;
   setStatus(live ? 'live' : 'connecting');
 }
@@ -746,7 +722,7 @@ function setStatus(s) {
 }
 
 /* ================================================================
-   SOCKET — websocket only, no polling overhead
+   SOCKET
    ================================================================ */
 function initSocket() {
   socket = io({
@@ -793,7 +769,7 @@ function switchCoinTab(tabId) {
 }
 
 /* ================================================================
-   SLIDER — swipe + dot sync
+   SLIDER
    ================================================================ */
 function initSlider() {
   const track = q('rateSlider');
@@ -826,7 +802,7 @@ function initSlider() {
 }
 
 /* ================================================================
-   LIVE CLOCK — updates #live-clock every second
+   LIVE CLOCK
    ================================================================ */
 function startLiveClock() {
   function tick() {
@@ -842,7 +818,7 @@ function startLiveClock() {
 }
 
 /* ================================================================
-   SHARE RATES — shows page picker, then generates a PNG rate-card
+   SHARE RATES
    ================================================================ */
 function shareRates() {
   document.querySelector('.share-overlay')?.remove();
@@ -897,8 +873,7 @@ async function doSharePage(pageId) {
 }
 
 /* ================================================================
-   GENERATE RATE IMAGE — page-specific branded PNG (Canvas API)
-   pageId: 'gold' | 'silver' | 'coins'
+   GENERATE RATE IMAGE
    ================================================================ */
 async function generateRateImage(pageId) {
   const site  = CFG?.site  || {};
@@ -991,12 +966,12 @@ async function generateRateImage(pageId) {
       ctx.fillStyle=GOLD;imgRoundRect(ctx,cx,cy,cardW,5,10);ctx.fill();
       const price=Math.round(goldBase*k.multiplier);
       ctx.textAlign='center';
-      ctx.fillStyle='rgba(255,255,255,0.9)';ctx.font='bold 24px Inter,Arial,sans-serif';
-      ctx.fillText(k.name,cx+cardW/2,cy+40);
-      ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='12px Inter,Arial,sans-serif';
-      ctx.fillText(k.purity||'',cx+cardW/2,cy+58);
-      ctx.fillStyle=GOLD;ctx.font='bold 22px Inter,Arial,sans-serif';
-      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),cx+cardW/2,cy+84);
+      ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='bold 28px Inter,Arial,sans-serif';
+      ctx.fillText(k.name, cx+cardW/2, cy+40);
+      ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font='14px Inter,Arial,sans-serif';
+      ctx.fillText(k.purity||'', cx+cardW/2, cy+58);
+      ctx.fillStyle=GOLD; ctx.font='bold 26px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'), cx+cardW/2, cy+84);
       ctx.textAlign='left';
     });
     y+=Math.ceil(karats.length/cols)*(cardH+10)+16;
@@ -1016,14 +991,14 @@ async function generateRateImage(pageId) {
     ctx.textAlign='left';y+=RLINE;
     rows.forEach((p,i)=>{
       if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
-      ctx.fillStyle='rgba(255,255,255,0.82)';ctx.font='14px Inter,Arial,sans-serif';
+      ctx.fillStyle='rgba(255,255,255,0.82)'; ctx.font='16px Inter,Arial,sans-serif';
       ctx.fillText(String(p.name||p.symbol||'').substring(0,26),C.nm,y+30);
-      ctx.textAlign='right';ctx.font='bold 16px Inter,Arial,sans-serif';
+      ctx.textAlign='right'; ctx.font='bold 19px Inter,Arial,sans-serif';
       if(p.bid !=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.bid), C.buy, y+30);}
       if(p.ask !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.ask), C.sell,y+30);}
       if(p.high!=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.high),C.high,y+30);}
       if(p.low !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.low), C.low, y+30);}
-      ctx.textAlign='left';y+=RLINE;
+      ctx.textAlign='left'; y+=RLINE;
     });
     ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
   }
@@ -1040,9 +1015,9 @@ async function generateRateImage(pageId) {
     rows.forEach((c,i)=>{
       if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
       const price=Math.round(base1u*c.grams+c.premium);
-      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='14px Inter,Arial,sans-serif';
+      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='16px Inter,Arial,sans-serif';
       ctx.fillText(String(c.name||'').substring(0,32),PAD+10,y+30);
-      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 20px Inter,Arial,sans-serif';
+      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 24px Inter,Arial,sans-serif';
       ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),W-PAD,y+30);
       ctx.textAlign='left';y+=RLINE;
     });
@@ -1056,11 +1031,14 @@ async function generateRateImage(pageId) {
 
   const fy=Math.max(y+14,H-82);
   ctx.fillStyle=GOLD;ctx.fillRect(PAD,fy,W-PAD*2,1.5);
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='13px Inter,Arial,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='14px Inter,Arial,sans-serif';
   ctx.textAlign='center';
   ctx.fillText('Rates are for reference only. Contact office for booking.',W/2,fy+26);
-  if(biz.phone){ctx.fillStyle=GOLD;ctx.font='bold 18px Inter,Arial,sans-serif';ctx.fillText(biz.phone,W/2,fy+54);}
-  ctx.fillStyle='rgba(255,255,255,0.17)';ctx.font='11px Inter,Arial,sans-serif';
+  if(biz.phone || biz.phone2 || biz.whatsapp){
+    ctx.fillStyle=GOLD;ctx.font='bold 20px Inter,Arial,sans-serif';
+    ctx.fillText(`${biz.phone || ''}  ${biz.phone2 ? ' / '+biz.phone2 : ''}  ${biz.whatsapp ? ' \u2022 '+biz.whatsapp : ''}`,W/2,fy+54);
+  }
+  ctx.fillStyle='rgba(255,255,255,0.17)';ctx.font='12px Inter,Arial,sans-serif';
   ctx.textAlign='right';ctx.fillText('Generated by Live Rates Platform',W-PAD,H-10);ctx.textAlign='left';
 
   return new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));

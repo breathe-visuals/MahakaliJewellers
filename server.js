@@ -30,6 +30,7 @@ const state = {
     connected: false,
     lastSeen: null,
     live: [],
+    rawRate: [],   /* full unfiltered Rate array with original field names */
     map: {},
     products: [],
   },
@@ -37,6 +38,7 @@ const state = {
     connected: false,
     lastSeen: null,
     live: [],
+    rawRate: [],   /* full unfiltered Rate array with original field names */
     map: {},
     products: [],
   },
@@ -119,18 +121,23 @@ function findRawByName(rows, name) {
   return rows.find(r => String(r?.Name ?? '').trim().toLowerCase() === target) || null;
 }
 
-/* ── Feed handler (unchanged from Reference) ── */
+/* ── Feed handler ── */
 function handleFeed(sourceKey, data) {
   try {
     const items = normalizeFeed(data);
     if (!items.length) return;
 
     state[sourceKey].live = items;
-    state[sourceKey].map = indexBySymbol(items);
+    state[sourceKey].map  = indexBySymbol(items);
     state[sourceKey].lastSeen = new Date().toISOString();
 
+    /* Store the raw Rate array with original field names (Name, Bid, Buy, IsDisplay…) */
     if (data && Array.isArray(data.Rate)) {
-      state[sourceKey].products = visibleProducts(data.Rate, sourceKey);
+      state[sourceKey].rawRate   = data.Rate;
+      state[sourceKey].products  = visibleProducts(data.Rate, sourceKey);
+    } else if (Array.isArray(data)) {
+      /* Feed sent a plain array — use it as rawRate too */
+      state[sourceKey].rawRate = data;
     }
 
     publish();
@@ -215,19 +222,50 @@ function buildRows(symbols) {
 }
 
 /* ── Base-rate finders for karat/coin calculations ── */
+
 function getGoldBase() {
-  /* Search full Gopnath raw Rate array for 999 IMP RTGS — ignores IsDisplay */
-  const raw = findRawByName(state.gopnath.live, '999 IMP RTGS');
-  if (raw) return toNum(raw.Bid ?? raw.Buy);
-  /* Fallback: summary gold bid from live map */
+  /* Strategy 1: raw Rate array – searches original Name field regardless of IsDisplay */
+  const r1 = findRawByName(state.gopnath.rawRate, '999 IMP RTGS');
+  if (r1) return toNum(r1.Bid ?? r1.Buy);
+
+  /* Strategy 2: live array (same items, different reference) */
+  const r2 = findRawByName(state.gopnath.live, '999 IMP RTGS');
+  if (r2) return toNum(r2.Bid ?? r2.Buy);
+
+  /* Strategy 3: visible products (standardized – lowercase name, bid field) */
+  const p = state.gopnath.products.find(
+    p => String(p?.name ?? '').trim().toLowerCase() === '999 imp rtgs'
+  );
+  if (p) return toNum(p.bid);
+
+  /* Strategy 4: summary gold bid */
   const g = chooseRaw('gold');
   return g ? toNum(g.Bid ?? g.Buy) : null;
 }
 
 function getSilverBase() {
-  /* Search full Swayam raw Rate array for SILVER PETI RTGS — ignores IsDisplay */
-  const raw = findRawByName(state.swayam.live, 'SILVER PETI RTGS');
-  if (raw) return toNum(raw.Bid ?? raw.Buy);
+  const TARGET = 'silver peti rtgs';
+
+  /* Strategy 1: raw Rate array – original Name field, ignores IsDisplay */
+  const r1 = findRawByName(state.swayam.rawRate, 'SILVER PETI RTGS');
+  if (r1) return toNum(r1.Bid ?? r1.Buy);
+
+  /* Strategy 2: live array */
+  const r2 = findRawByName(state.swayam.live, 'SILVER PETI RTGS');
+  if (r2) return toNum(r2.Bid ?? r2.Buy);
+
+  /* Strategy 3: visible products (standardized) */
+  const p = state.swayam.products.find(
+    p => String(p?.name ?? '').trim().toLowerCase() === TARGET
+  );
+  if (p) return toNum(p.bid);
+
+  /* Strategy 4: fuzzy – any row whose name contains 'peti' */
+  const fuzzy = [...state.swayam.rawRate, ...state.swayam.live].find(
+    r => String(r?.Name ?? r?.name ?? '').toLowerCase().includes('peti')
+  );
+  if (fuzzy) return toNum(fuzzy.Bid ?? fuzzy.Buy ?? fuzzy.bid);
+
   return null;
 }
 
@@ -264,9 +302,27 @@ connectFeed('swayam');
 /* ── Static files served from public/ ── */
 app.use(express.static(path.join(__dirname, 'public')));
 
-/* ── API route ── */
+/* ── API routes ── */
 app.get('/api/rates', (req, res) => {
   res.json(buildPayload());
+});
+
+/* Debug: lists all product names from both feeds — use to confirm silver row name */
+app.get('/api/debug', (req, res) => {
+  const swayamNames = state.swayam.rawRate.map(r => ({
+    name: r?.Name, bid: r?.Bid ?? r?.Buy, display: r?.IsDisplay,
+  }));
+  const gopnathNames = state.gopnath.rawRate.map(r => ({
+    name: r?.Name, bid: r?.Bid ?? r?.Buy, display: r?.IsDisplay,
+  }));
+  res.json({
+    goldBase:   getGoldBase(),
+    silverBase: getSilverBase(),
+    swayamRawCount:  state.swayam.rawRate.length,
+    gopnathRawCount: state.gopnath.rawRate.length,
+    swayam:  swayamNames,
+    gopnath: gopnathNames,
+  });
 });
 
 /* ── Emit snapshot to each new client ── */

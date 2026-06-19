@@ -2,9 +2,16 @@
    MAHAKALI JEWELLERS – app.js
    Socket.IO client. All live logic preserved from Reference.
    Extended with: karat rates, coin rates, multi-page navigation.
+   Speed: websocket-only transport, no polling overhead.
    ================================================================ */
 
-const socket = io({ transports: ['websocket', 'polling'] });
+/* Force websocket transport — skips HTTP polling negotiation for instant connection */
+const socket = io({
+  transports: ['websocket'],
+  upgrade: false,
+  reconnectionDelay: 0,
+  reconnectionDelayMax: 500,
+});
 
 /* ── DOM refs ─────────────────────────────────────────── */
 const dom = {
@@ -459,6 +466,6 @@ function switchCoinTab(tabId) {
         if (dist < minDist) { minDist = dist; closest = i; }
       });
       updateDots(closest);
-    }, 50);
+    }, 16); /* 1 frame — fast enough for smooth dot sync */
   }, { passive: true });
 })();

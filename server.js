@@ -1,50 +1,57 @@
-const express = require('express');
-const http = require('http');
-const path = require('path');
-const { Server } = require('socket.io');
+const express  = require('express');
+const http     = require('http');
+const path     = require('path');
+const fs       = require('fs');
+const { Server }    = require('socket.io');
 const { io: createClient } = require('socket.io-client');
 
-const app = express();
+const app        = express();
 const httpServer = http.createServer(app);
-const io = new Server(httpServer, {
-  cors: { origin: '*' },
-});
+const io         = new Server(httpServer, { cors: { origin: '*' } });
 
 const PORT = process.env.PORT || 3000;
 
-/* ── Feed configuration (unchanged from Reference) ── */
+/* ══════════════════════════════════════════════════════════════
+   CONFIG — loaded once at startup from /config/*.json
+   Future clients only need to edit those two files + /Media/*
+   ══════════════════════════════════════════════════════════════ */
+function loadConfig(filename) {
+  const p = path.join(__dirname, 'config', filename);
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch (err) {
+    console.error(`[config] Cannot load ${filename}: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+const siteConfig  = loadConfig('site-config.json');
+const adminConfig = loadConfig('admin-config.json');
+
+/* Config-driven base row names */
+const GOLD_BASE_ROW   = adminConfig?.goldRates?.baseRow   || '999 IMP RTGS';
+const GOLD_COIN_ROW   = adminConfig?.goldCoins?.baseRow   || '999 IMP RTGS';
+const SILVER_COIN_ROW = adminConfig?.silverCoins?.baseRow || 'SILVER PETI RTGS';
+
+/* ══════════════════════════════════════════════════════════════
+   FEED CONFIGURATION  (unchanged from Reference)
+   ══════════════════════════════════════════════════════════════ */
 const FEEDS = {
-  gopnath: {
-    url: 'https://starlinesupport.in:10001',
-    room: 'gopnathrefinery',
-  },
-  swayam: {
-    url: 'https://starlinesolutions.in:10001',
-    room: 'swayamtrading',
-  },
+  gopnath: { url: 'https://starlinesupport.in:10001',  room: 'gopnathrefinery' },
+  swayam:  { url: 'https://starlinesolutions.in:10001', room: 'swayamtrading'   },
 };
 
-/* ── Server-side state ── */
+/* ══════════════════════════════════════════════════════════════
+   SERVER STATE
+   ══════════════════════════════════════════════════════════════ */
 const state = {
-  gopnath: {
-    connected: false,
-    lastSeen: null,
-    live: [],
-    rawRate: [],   /* full unfiltered Rate array with original field names */
-    map: {},
-    products: [],
-  },
-  swayam: {
-    connected: false,
-    lastSeen: null,
-    live: [],
-    rawRate: [],   /* full unfiltered Rate array with original field names */
-    map: {},
-    products: [],
-  },
+  gopnath: { connected: false, lastSeen: null, live: [], rawRate: [], map: {}, products: [] },
+  swayam:  { connected: false, lastSeen: null, live: [], rawRate: [], map: {}, products: [] },
 };
 
-/* ── Utility functions (unchanged from Reference) ── */
+/* ══════════════════════════════════════════════════════════════
+   UTILITY FUNCTIONS  (unchanged from Reference)
+   ══════════════════════════════════════════════════════════════ */
 function toNum(val) {
   if (val === undefined || val === null) return null;
   const cleaned = String(val).replace(/,/g, '').trim();
@@ -54,27 +61,25 @@ function toNum(val) {
 }
 
 function normalizeFeed(data) {
-  if (Array.isArray(data)) return data;
+  if (Array.isArray(data))              return data;
   if (data && Array.isArray(data.Rate)) return data.Rate;
   return [];
 }
 
 function symbolOf(item) {
-  return String(item?.symbol ?? item?.Symbol ?? item?.Source ?? '')
-    .trim()
-    .toLowerCase();
+  return String(item?.symbol ?? item?.Symbol ?? item?.Source ?? '').trim().toLowerCase();
 }
 
 function labelOf(symbol, item) {
-  const sym = String(symbol || '').toLowerCase();
-  if (sym === 'gold') return 'Gold';
-  if (sym === 'silver') return 'Silver';
-  if (sym === 'goldnext') return 'Gold Next';
-  if (sym === 'silvernext') return 'Silver Next';
-  if (sym === 'xauusd') return 'XAU/USD';
-  if (sym === 'xagusd') return 'XAG/USD';
-  if (sym === 'inrspot') return 'INR Spot';
-  if (item?.Name) return String(item.Name).toUpperCase();
+  const s = String(symbol || '').toLowerCase();
+  if (s === 'gold')       return 'Gold';
+  if (s === 'silver')     return 'Silver';
+  if (s === 'goldnext')   return 'Gold Next';
+  if (s === 'silvernext') return 'Silver Next';
+  if (s === 'xauusd')     return 'XAU/USD';
+  if (s === 'xagusd')     return 'XAG/USD';
+  if (s === 'inrspot')    return 'INR Spot';
+  if (item?.Name)         return String(item.Name).toUpperCase();
   return String(symbol || '').toUpperCase();
 }
 
@@ -82,8 +87,8 @@ function indexBySymbol(items) {
   const map = {};
   for (const item of items) {
     const sym = symbolOf(item);
-    if (!sym) continue;
-    if (!map[sym]) map[sym] = item;
+    if (!sym || map[sym]) continue;
+    map[sym] = item;
   }
   return map;
 }
@@ -93,50 +98,50 @@ function standardizeItem(item, sourceKey) {
   const symbol = symbolOf(item);
   return {
     symbol,
-    name: item.Name || item.Symbol_Name || item.Symbol || labelOf(symbol, item),
-    bid: toNum(item.Bid ?? item.Buy),
-    ask: toNum(item.Ask ?? item.Sell),
-    high: toNum(item.High),
-    low: toNum(item.Low),
-    open: toNum(item.Open),
+    name:  item.Name || item.Symbol_Name || item.Symbol || labelOf(symbol, item),
+    bid:   toNum(item.Bid   ?? item.Buy),
+    ask:   toNum(item.Ask   ?? item.Sell),
+    high:  toNum(item.High),
+    low:   toNum(item.Low),
+    open:  toNum(item.Open),
     close: toNum(item.Close),
-    diff: toNum(item.Difference),
-    ltp: toNum(item.LTP),
-    time: item.Time || null,
+    diff:  toNum(item.Difference),
+    ltp:   toNum(item.LTP),
+    time:  item.Time || null,
     source: sourceKey,
   };
 }
 
 function visibleProducts(rows, sourceKey) {
   return rows
-    .filter((row) => String(row?.IsDisplay).toLowerCase() === 'true')
-    .map((row) => standardizeItem(row, sourceKey))
+    .filter(row => String(row?.IsDisplay).toLowerCase() === 'true')
+    .map(row    => standardizeItem(row, sourceKey))
     .filter(Boolean);
 }
 
-/* Search full raw Rate array by Name field (case-insensitive, ignores IsDisplay) */
+/* Search full raw Rate array by Name field — ignores IsDisplay */
 function findRawByName(rows, name) {
   if (!Array.isArray(rows)) return null;
-  const target = String(name).trim().toLowerCase();
-  return rows.find(r => String(r?.Name ?? '').trim().toLowerCase() === target) || null;
+  const t = String(name).trim().toLowerCase();
+  return rows.find(r => String(r?.Name ?? '').trim().toLowerCase() === t) || null;
 }
 
-/* ── Feed handler ── */
+/* ══════════════════════════════════════════════════════════════
+   FEED HANDLER  (unchanged from Reference)
+   ══════════════════════════════════════════════════════════════ */
 function handleFeed(sourceKey, data) {
   try {
     const items = normalizeFeed(data);
     if (!items.length) return;
 
-    state[sourceKey].live = items;
-    state[sourceKey].map  = indexBySymbol(items);
+    state[sourceKey].live    = items;
+    state[sourceKey].map     = indexBySymbol(items);
     state[sourceKey].lastSeen = new Date().toISOString();
 
-    /* Store the raw Rate array with original field names (Name, Bid, Buy, IsDisplay…) */
     if (data && Array.isArray(data.Rate)) {
-      state[sourceKey].rawRate   = data.Rate;
-      state[sourceKey].products  = visibleProducts(data.Rate, sourceKey);
+      state[sourceKey].rawRate  = data.Rate;
+      state[sourceKey].products = visibleProducts(data.Rate, sourceKey);
     } else if (Array.isArray(data)) {
-      /* Feed sent a plain array — use it as rawRate too */
       state[sourceKey].rawRate = data;
     }
 
@@ -146,9 +151,11 @@ function handleFeed(sourceKey, data) {
   }
 }
 
-/* ── Feed connection (unchanged from Reference) ── */
+/* ══════════════════════════════════════════════════════════════
+   FEED CONNECTION  (unchanged from Reference)
+   ══════════════════════════════════════════════════════════════ */
 function connectFeed(sourceKey) {
-  const feed = FEEDS[sourceKey];
+  const feed   = FEEDS[sourceKey];
   const socket = createClient(feed.url, {
     transports: ['websocket', 'polling'],
     reconnection: true,
@@ -159,134 +166,105 @@ function connectFeed(sourceKey) {
 
   socket.on('connect', () => {
     state[sourceKey].connected = true;
-    socket.emit('room', feed.room);
+    socket.emit('room',   feed.room);
     socket.emit('Client', feed.room);
     publish();
   });
-
-  socket.on('disconnect', () => {
-    state[sourceKey].connected = false;
-    publish();
-  });
-
+  socket.on('disconnect',    ()    => { state[sourceKey].connected = false; publish(); });
   socket.on('connect_error', (err) => {
     state[sourceKey].connected = false;
     console.log(`[${sourceKey}] connect_error:`, err.message);
     publish();
   });
-
-  socket.on('ClientData', (data) => {
-    try {
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-      state[sourceKey].clientData = parsed;
-    } catch {
-      // ignore
-    }
+  socket.on('ClientData', data => {
+    try { state[sourceKey].clientData = typeof data === 'string' ? JSON.parse(data) : data; } catch {}
   });
-
-  socket.on('message', (data) => handleFeed(sourceKey, data));
-  socket.on('Liverate', (data) => handleFeed(sourceKey, data));
+  socket.on('message',  data => handleFeed(sourceKey, data));
+  socket.on('Liverate', data => handleFeed(sourceKey, data));
 
   return socket;
 }
 
-/* ── Symbol routing (unchanged from Reference) ── */
+/* ══════════════════════════════════════════════════════════════
+   SYMBOL ROUTING  (unchanged from Reference)
+   ══════════════════════════════════════════════════════════════ */
 function chooseRaw(symbol) {
-  const sym = String(symbol || '').toLowerCase();
-
-  if (sym === 'gold') {
-    return state.gopnath.map.gold || state.swayam.map.gold || null;
-  }
-
-  if (sym === 'silver') {
-    return state.swayam.map.silver || state.gopnath.map.silver || null;
-  }
-
-  return state.swayam.map[sym] || state.gopnath.map[sym] || null;
+  const s = String(symbol || '').toLowerCase();
+  if (s === 'gold')   return state.gopnath.map.gold   || state.swayam.map.gold   || null;
+  if (s === 'silver') return state.swayam.map.silver  || state.gopnath.map.silver || null;
+  return state.swayam.map[s] || state.gopnath.map[s] || null;
 }
 
 function sourceFor(symbol) {
-  const sym = String(symbol || '').toLowerCase();
-  if (sym === 'silver' || sym === 'silvernext') return 'swayam';
-  return state.gopnath.map[sym] ? 'gopnath' : 'swayam';
+  const s = String(symbol || '').toLowerCase();
+  if (s === 'silver' || s === 'silvernext') return 'swayam';
+  return state.gopnath.map[s] ? 'gopnath' : 'swayam';
 }
 
 function buildRows(symbols) {
   return symbols
-    .map((sym) => {
-      const raw = chooseRaw(sym);
-      if (!raw) return null;
-      return standardizeItem(raw, sourceFor(sym));
-    })
+    .map(sym => { const raw = chooseRaw(sym); return raw ? standardizeItem(raw, sourceFor(sym)) : null; })
     .filter(Boolean);
 }
 
-/* ── Base-rate finders for karat/coin calculations ── */
-/*
-  Gold base  = "999 IMP RTGS"    row from Gold Products  → ASK (Sell) price
-  Silver base = "SILVER PETI RTGS" row from Silver Products → ASK (Sell) price
+/* ══════════════════════════════════════════════════════════════
+   CONFIG-DRIVEN BASE RATE LOOKUP
+   Source row names come from admin-config.json — no hardcoding.
 
-  Both rows are IsDisplay=true (shown in the product tables), so we search
-  state.*.products (already standardized, .ask field = Sell) first.
-  rawRate is kept as a safety fallback using Ask ?? Sell fields.
-*/
+   Priority:
+     1. Visible products (standardized .ask = Sell) — fastest
+     2. Full rawRate array (original Name/Ask fields)
+     3. Fuzzy keyword fallback
+   ══════════════════════════════════════════════════════════════ */
+function getBaseAsk(sourceKey, rowName) {
+  const target = String(rowName).trim().toLowerCase();
 
-function getGoldBase() {
-  /* Strategy 1 – visible Gold Products (standardized): .ask = Sell */
-  const p = state.gopnath.products.find(
-    p => String(p?.name ?? '').trim().toLowerCase() === '999 imp rtgs'
+  /* 1 — visible products (already standardized, .ask = Sell) */
+  const p = state[sourceKey].products.find(
+    p => String(p?.name ?? '').trim().toLowerCase() === target
   );
-  if (p != null && p.ask != null) return toNum(p.ask);
+  if (p?.ask != null) return toNum(p.ask);
 
-  /* Strategy 2 – raw Rate array: Ask ?? Sell field */
-  const r = findRawByName(state.gopnath.rawRate, '999 IMP RTGS')
-         || findRawByName(state.gopnath.live,    '999 IMP RTGS');
+  /* 2 — raw Rate array with original field names */
+  const r = findRawByName(state[sourceKey].rawRate, rowName)
+         || findRawByName(state[sourceKey].live,    rowName);
   if (r) return toNum(r.Ask ?? r.Sell);
+
+  /* 3 — fuzzy: first word > 3 chars in row name */
+  const kw = target.split(' ').find(w => w.length > 3);
+  if (kw) {
+    const fuzzy = [...state[sourceKey].rawRate, ...state[sourceKey].live].find(
+      r => String(r?.Name ?? r?.name ?? '').toLowerCase().includes(kw)
+    );
+    if (fuzzy) return toNum(fuzzy.Ask ?? fuzzy.Sell ?? fuzzy.ask);
+  }
 
   return null;
 }
 
-function getSilverBase() {
-  /* Strategy 1 – visible Silver Products (standardized): .ask = Sell */
-  const p = state.swayam.products.find(
-    p => String(p?.name ?? '').trim().toLowerCase() === 'silver peti rtgs'
-  );
-  if (p != null && p.ask != null) return toNum(p.ask);
+function getGoldBase()      { return getBaseAsk('gopnath', GOLD_BASE_ROW);   }
+function getGoldCoinBase()  { return getBaseAsk('gopnath', GOLD_COIN_ROW);   }
+function getSilverCoinBase(){ return getBaseAsk('swayam',  SILVER_COIN_ROW); }
 
-  /* Strategy 2 – raw Rate array: Ask ?? Sell field */
-  const r = findRawByName(state.swayam.rawRate, 'SILVER PETI RTGS')
-         || findRawByName(state.swayam.live,    'SILVER PETI RTGS');
-  if (r) return toNum(r.Ask ?? r.Sell);
-
-  /* Strategy 3 – fuzzy: any row whose name contains 'peti', Sell price */
-  const fuzzy = [...state.swayam.rawRate, ...state.swayam.live].find(
-    r => String(r?.Name ?? r?.name ?? '').toLowerCase().includes('peti')
-  );
-  if (fuzzy) return toNum(fuzzy.Ask ?? fuzzy.Sell ?? fuzzy.ask);
-
-  return null;
-}
-
-
-/* ── Payload builder ── */
+/* ══════════════════════════════════════════════════════════════
+   PAYLOAD BUILDER
+   ══════════════════════════════════════════════════════════════ */
 function buildPayload() {
   return {
     updatedAt: state.swayam.lastSeen || state.gopnath.lastSeen || null,
-    connected: {
-      gopnath: state.gopnath.connected,
-      swayam: state.swayam.connected,
-    },
+    connected: { gopnath: state.gopnath.connected, swayam: state.swayam.connected },
     summary: {
-      gold: standardizeItem(chooseRaw('gold'), 'gopnath'),
+      gold:   standardizeItem(chooseRaw('gold'),   'gopnath'),
       silver: standardizeItem(chooseRaw('silver'), 'swayam'),
     },
-    goldProducts: state.gopnath.products,
+    goldProducts:   state.gopnath.products,
     silverProducts: state.swayam.products,
     futureRows: buildRows(['gold', 'silver', 'goldnext', 'silvernext']),
-    spotRows: buildRows(['xauusd', 'xagusd', 'inrspot']),
-    /* Explicit base rates for karat/coin calculations (from full raw data, not just visible rows) */
-    goldBase: getGoldBase(),
-    silverBase: getSilverBase(),
+    spotRows:   buildRows(['xauusd', 'xagusd', 'inrspot']),
+    /* Config-driven base rates (Sell price of configured base rows) */
+    goldBase:      getGoldBase(),
+    goldCoinBase:  getGoldCoinBase(),
+    silverCoinBase: getSilverCoinBase(),
   };
 }
 
@@ -294,41 +272,67 @@ function publish() {
   io.emit('rates:update', buildPayload());
 }
 
-/* ── Start feeds ── */
+/* ══════════════════════════════════════════════════════════════
+   START FEEDS
+   ══════════════════════════════════════════════════════════════ */
 connectFeed('gopnath');
 connectFeed('swayam');
 
-/* ── Static files served from public/ ── */
+/* ══════════════════════════════════════════════════════════════
+   EXPRESS — static files + API
+   ══════════════════════════════════════════════════════════════ */
 app.use(express.static(path.join(__dirname, 'public')));
 
-/* ── API routes ── */
+/* Config endpoint — loaded once by client on startup */
+app.get('/api/config', (req, res) => {
+  res.json({ site: siteConfig, admin: adminConfig });
+});
+
+/* Snapshot rates endpoint */
 app.get('/api/rates', (req, res) => {
   res.json(buildPayload());
 });
 
-/* Debug: lists all product names from both feeds — use to confirm silver row name */
+/* Debug: shows all raw product names and resolved base rates */
 app.get('/api/debug', (req, res) => {
-  const swayamNames = state.swayam.rawRate.map(r => ({
-    name: r?.Name, bid: r?.Bid ?? r?.Buy, display: r?.IsDisplay,
-  }));
-  const gopnathNames = state.gopnath.rawRate.map(r => ({
-    name: r?.Name, bid: r?.Bid ?? r?.Buy, display: r?.IsDisplay,
-  }));
   res.json({
-    goldBase:   getGoldBase(),
-    silverBase: getSilverBase(),
-    swayamRawCount:  state.swayam.rawRate.length,
-    gopnathRawCount: state.gopnath.rawRate.length,
-    swayam:  swayamNames,
-    gopnath: gopnathNames,
+    goldBase:      getGoldBase(),
+    goldCoinBase:  getGoldCoinBase(),
+    silverCoinBase: getSilverCoinBase(),
+    configuredRows: { GOLD_BASE_ROW, GOLD_COIN_ROW, SILVER_COIN_ROW },
+    gopnathProducts: state.gopnath.rawRate.map(r => ({ name: r?.Name, ask: r?.Ask ?? r?.Sell, display: r?.IsDisplay })),
+    swayamProducts:  state.swayam.rawRate.map(r =>  ({ name: r?.Name, ask: r?.Ask ?? r?.Sell, display: r?.IsDisplay })),
   });
 });
 
-/* ── Emit snapshot to each new client ── */
-io.on('connection', (socket) => {
+/* Dynamic web manifest from config */
+app.get('/manifest.webmanifest', (req, res) => {
+  const biz   = siteConfig?.business || {};
+  const theme = siteConfig?.theme    || {};
+  res.json({
+    name:             biz.name        || 'Jewellers',
+    short_name:       biz.name        || 'Jewellers',
+    description:      `${biz.name} – Live gold and silver bullion rates`,
+    start_url:        '/',
+    display:          'standalone',
+    orientation:      'portrait',
+    theme_color:      theme.primaryColor || '#003336',
+    background_color: theme.primaryColor || '#003336',
+    icons: [
+      { src: '/Media/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { src: '/Media/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════
+   SOCKET — emit snapshot to every new client
+   ══════════════════════════════════════════════════════════════ */
+io.on('connection', socket => {
   socket.emit('rates:update', buildPayload());
 });
 
 httpServer.listen(PORT, () => {
-  console.log(`Mahakali Jewellers running on http://localhost:${PORT}`);
+  console.log(`\n  ${siteConfig?.business?.name || 'Jewellers'} Live Rates`);
+  console.log(`  Running → http://localhost:${PORT}\n`);
 });

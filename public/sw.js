@@ -1,52 +1,63 @@
 /* ================================================================
-   sw.js – Mahakali Jewellers Service Worker
-   Caches the shell (HTML/CSS/JS/assets) for offline capability.
-   Live socket data is NEVER cached.
+   sw.js – Jewellery Live Rates Platform  v3
+   ─ Shell assets cached for offline capability
+   ─ /api/* and /socket.io/* are NEVER intercepted
+   ─ /api/config is network-first (config changes must propagate)
    ================================================================ */
 
-const CACHE_NAME = 'mahakali-v1';
+const CACHE_NAME = 'jewellers-shell-v3';
 
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
-  '/Media/mahakali-logo.png',
+  '/manifest.webmanifest',
   '/Media/android-chrome-192x192.png',
   '/Media/android-chrome-512x512.png',
   '/Media/apple-touch-icon.png',
   '/Media/favicon.ico',
   '/Media/favicon-32x32.png',
   '/Media/favicon-16x16.png',
-  '/Media/site.webmanifest',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap',
 ];
 
-/* Install: pre-cache shell */
+/* ── Install: pre-cache shell ── */
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL_ASSETS)).catch(() => { })
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(SHELL_ASSETS))
+      .catch(() => { /* ignore pre-cache errors */ })
   );
 });
 
-/* Activate: purge old caches */
+/* ── Activate: purge old caches ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
-/* Fetch: cache-first for shell, network-only for socket/API */
+/* ── Fetch strategy ── */
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  /* Never intercept Socket.IO or API routes */
-  if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api')) return;
+  /* Never intercept socket or live-data API */
+  if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api/rates')) return;
+  if (url.pathname.startsWith('/api/debug')) return;
 
-  /* Network-first for HTML to always get fresh shell updates */
+  /* /api/config — network-first so config changes propagate immediately */
+  if (url.pathname.startsWith('/api/config')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  /* Navigation (HTML) — network-first, fallback to cached shell */
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match('/index.html'))
@@ -54,7 +65,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  /* Cache-first for all other assets */
+  /* All other assets — cache-first, populate on first hit */
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;

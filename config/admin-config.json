@@ -1,0 +1,63 @@
+{
+  "pages": {
+    "gold": true,
+    "silver": true,
+    "coins": true
+  },
+
+  "sections": {
+    "karatRates": true,
+    "goldProducts": true,
+    "silverProducts": true,
+    "futureRates": true,
+    "spotRates": true,
+    "coinRates": true
+  },
+
+  "features": {
+    "showMarquee": true,
+    "showLastUpdated": true,
+    "showConnectionStatus": true,
+    "enablePWA": true
+  },
+
+  "goldRates": {
+    "baseRow": "999 IMP RTGS",
+    "karats": [
+      { "name": "24K", "purity": "999‰", "multiplier": 1.0    },
+      { "name": "22K", "purity": "916‰", "multiplier": 0.9167 },
+      { "name": "21K", "purity": "875‰", "multiplier": 0.875  },
+      { "name": "20K", "purity": "833‰", "multiplier": 0.8333 },
+      { "name": "18K", "purity": "750‰", "multiplier": 0.75   },
+      { "name": "14K", "purity": "583‰", "multiplier": 0.5833 },
+      { "name": "9K",  "purity": "375‰", "multiplier": 0.375  }
+    ]
+  },
+
+  "goldCoins": {
+    "baseRow": "999 IMP RTGS",
+    "divisor": 10,
+    "rows": [
+      { "name": "GOLD COIN 999 1 GM",   "grams": 1,   "premium": 1000  },
+      { "name": "GOLD COIN 999 2 GM",   "grams": 2,   "premium": 2000  },
+      { "name": "GOLD COIN 999 5 GM",   "grams": 5,   "premium": 5000  },
+      { "name": "GOLD COIN 999 10 GM",  "grams": 10,  "premium": 1000  },
+      { "name": "GOLD COIN 999 20 GM",  "grams": 20,  "premium": 2000  },
+      { "name": "GOLD COIN 999 50 GM",  "grams": 50,  "premium": 5000  },
+      { "name": "GOLD COIN 999 100 GM", "grams": 100, "premium": 10000 }
+    ]
+  },
+
+  "silverCoins": {
+    "baseRow": "SILVER PETI RTGS",
+    "divisor": 1000,
+    "rows": [
+      { "name": "SILVER COIN 999 10 GM",  "grams": 10,   "premium": 500  },
+      { "name": "SILVER COIN 999 20 GM",  "grams": 20,   "premium": 1000 },
+      { "name": "SILVER COIN 999 50 GM",  "grams": 50,   "premium": 1000 },
+      { "name": "SILVER COIN 999 100 GM", "grams": 100,  "premium": 1500 },
+      { "name": "SILVER COIN 999 500 GM", "grams": 500,  "premium": 2500 },
+      { "name": "SILVER COIN 999 1 KG",   "grams": 1000, "premium": 5000 }
+    ]
+  }
+}

@@ -41,6 +41,8 @@
   --shadow-lg:   0 16px 48px rgba(0,51,54,0.13);
 
   --bnav-h:      68px;
+  --contact-h:   0px;   /* set to 60px by JS when contact bar is visible */
+  --marquee-h:   0px;   /* set to 34px by JS when marquee is enabled */
 }
 
 /* ---------- RESET ---------- */
@@ -52,7 +54,7 @@ body {
   color: var(--text);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: var(--bnav-h);
+  padding-bottom: calc(var(--bnav-h) + var(--contact-h));
 }
 
 /* ---------- HEADER ---------- */
@@ -604,6 +606,86 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   color: var(--text-muted);
   border-top: 1px solid var(--border-soft);
 }
+.footer-contact {
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.footer-contact a {
+  color: var(--gold);
+  text-decoration: none;
+}
+.footer-contact a:hover { text-decoration: underline; }
+.footer-address {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.footer-socials {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.footer-socials a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.footer-socials a:hover { color: var(--gold); }
+
+/* ---------- CONTACT BAR (sticky, mobile) ---------- */
+.contact-bar {
+  position: fixed;
+  bottom: calc(var(--bnav-h) + env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  z-index: 280;
+  display: flex;
+  gap: 10px;
+  padding: 9px 14px;
+  background: var(--surface);
+  border-top: 1.5px solid var(--border);
+  box-shadow: 0 -4px 18px rgba(0,0,0,0.12);
+}
+.contact-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: opacity 0.15s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.contact-btn:active { opacity: 0.82; transform: scale(0.97); }
+.phone-btn {
+  background: var(--brand);
+  color: #fff;
+  border: 2px solid transparent;
+}
+.phone-btn:hover { opacity: 0.9; }
+.whatsapp-btn {
+  background: #25d366;
+  color: #fff;
+  border: 2px solid transparent;
+}
+.whatsapp-btn:hover { opacity: 0.9; }
+
+/* ---------- BOTTOM NAV INNER ---------- */
+.bottom-nav-inner {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+}
 
 /* ============================================================
    RESPONSIVE
@@ -629,11 +711,12 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .page-title { font-size: 1.8rem; }
 }
 
-/* Desktop (992+): show desktop nav, hide bottom nav */
+/* Desktop (992+): show desktop nav, hide bottom nav + contact bar */
 @media (min-width: 992px) {
   body { padding-bottom: 0; }
   .desktop-nav { display: block; }
-  .bottom-nav { display: none; }
+  .bottom-nav  { display: none; }
+  .contact-bar { display: none !important; }
   .header-logo { height: 80px; }
   .header-inner { padding: 14px 40px; }
   .page { padding: 28px 40px 32px; gap: 24px; }

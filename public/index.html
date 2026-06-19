@@ -1,273 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#003336" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Mahakali Jewellers" />
-  <meta name="description" content="Mahakali Jewellers – Live gold and silver bullion rates, updated instantly." />
 
-  <title>Mahakali Jewellers – Live Rates</title>
+  <!-- All dynamic meta tags injected by app.js after config loads -->
+  <meta id="meta-theme-color"   name="theme-color"                        content="#003336" />
+  <meta id="meta-mobile"        name="mobile-web-app-capable"             content="yes" />
+  <meta id="meta-apple-cap"     name="apple-mobile-web-app-capable"       content="yes" />
+  <meta id="meta-apple-bar"     name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta id="meta-apple-title"   name="apple-mobile-web-app-title"         content="Jewellers" />
+  <meta id="meta-description"   name="description"                        content="Live bullion rates" />
 
-  <!-- Icons & Manifest -->
-  <link rel="icon" href="Media/favicon.ico" sizes="any" />
-  <link rel="icon" type="image/png" sizes="32x32" href="Media/favicon-32x32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="Media/favicon-16x16.png" />
-  <link rel="apple-touch-icon" href="Media/apple-touch-icon.png" />
-  <link rel="manifest" href="Media/site.webmanifest" />
+  <title id="page-title">Live Rates</title>
+
+  <!-- Icons (Media/ paths set by app.js) -->
+  <link id="favicon-ico" rel="icon"             href="/Media/favicon.ico"        sizes="any" />
+  <link id="favicon-32"  rel="icon"             href="/Media/favicon-32x32.png"  type="image/png" sizes="32x32" />
+  <link id="favicon-16"  rel="icon"             href="/Media/favicon-16x16.png"  type="image/png" sizes="16x16" />
+  <link id="apple-touch" rel="apple-touch-icon" href="/Media/apple-touch-icon.png" />
+  <!-- Manifest is served dynamically from server using site-config.json -->
+  <link id="manifest"    rel="manifest"         href="/manifest.webmanifest" />
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap"
-    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
-
 <body>
 
-  <!-- HEADER -->
+  <!-- ═══ HEADER ═══ -->
   <header class="site-header">
     <div class="header-inner">
-      <img src="Media/mahakali-logo.png" alt="Mahakali Jewellers" class="header-logo" />
+      <img id="header-logo" src="" alt="Logo" class="header-logo" />
       <div class="header-status">
-        <span id="status" class="status-dot" title="Connection status"></span>
+        <span id="status"      class="status-dot"  title="Connection status"></span>
         <span id="lastUpdated" class="last-updated">—</span>
       </div>
     </div>
   </header>
 
-  <!-- MARQUEE -->
-  <div class="marquee-container">
+  <!-- ═══ MARQUEE — shown/hidden by config ═══ -->
+  <div id="marquee-wrap" class="marquee-container" style="display:none">
     <div class="marquee-bar">
-      <marquee behavior="scroll" direction="left" scrollamount="8">THESE RATES ARE ONLY FOR REFERENCE. TO BOOK YOUR ORDER, CALL AT OFFICE NUMBER. &nbsp;&nbsp;&nbsp; ये दरें केवल संदर्भ के लिए हैं। ऑर्डर बुक करने के लिए कार्यालय नंबर पर कॉल करें।</marquee>
+      <marquee id="marquee-text" behavior="scroll" direction="left" scrollamount="8"></marquee>
     </div>
   </div>
 
-  <!-- DESKTOP NAV -->
-  <nav class="desktop-nav" role="navigation" aria-label="Main navigation">
-    <div class="desktop-nav-inner">
-      <button class="dnav-btn active" id="dnav-gold" aria-pressed="true" onclick="switchPage('gold')">
-        <span class="dnav-icon">⚜</span> Gold Rates
-      </button>
-      <button class="dnav-btn" id="dnav-silver" aria-pressed="false" onclick="switchPage('silver')">
-        <span class="dnav-icon">◈</span> Silver Rates
-      </button>
-      <button class="dnav-btn" id="dnav-coins" aria-pressed="false" onclick="switchPage('coins')">
-        <span class="dnav-icon">🪙</span> Coin Rates
-      </button>
-    </div>
+  <!-- ═══ DESKTOP NAV — built by JS from enabled pages ═══ -->
+  <nav id="desktop-nav" class="desktop-nav" role="navigation" aria-label="Main navigation">
+    <div id="desktop-nav-inner" class="desktop-nav-inner"></div>
   </nav>
 
-  <!-- PAGE: GOLD -->
-  <main class="page" id="page-gold" aria-label="Gold Rates">
+  <!-- ═══ PAGES — injected by app.js ═══ -->
+  <div id="pages-root"></div>
 
-    <h1 class="page-title">Gold Rates</h1>
+  <!-- ═══ CONTACT BAR — built from config ═══ -->
+  <div id="contact-bar" class="contact-bar" style="display:none" aria-label="Contact"></div>
 
-    <!-- SECTION 1: KARAT RATES -->
-    <section class="section" aria-label="Karat Rates">
-      <div class="section-label">
-        <span class="section-title">Karat Rates</span>
-        <span class="section-subtitle">Base: 999 IMP RTGS &nbsp;·&nbsp; Sell Rate</span>
-      </div>
-      <div class="karat-grid" id="karatGrid">
-        <div class="karat-card" id="karat-24k">
-          <div class="karat-label">24K</div>
-          <div class="karat-purity">999‰</div>
-          <div class="karat-price" id="kp-24k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-22k">
-          <div class="karat-label">22K</div>
-          <div class="karat-purity">916‰</div>
-          <div class="karat-price" id="kp-22k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-21k">
-          <div class="karat-label">21K</div>
-          <div class="karat-purity">875‰</div>
-          <div class="karat-price" id="kp-21k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-20k">
-          <div class="karat-label">20K</div>
-          <div class="karat-purity">833‰</div>
-          <div class="karat-price" id="kp-20k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-18k">
-          <div class="karat-label">18K</div>
-          <div class="karat-purity">750‰</div>
-          <div class="karat-price" id="kp-18k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-14k">
-          <div class="karat-label">14K</div>
-          <div class="karat-purity">583‰</div>
-          <div class="karat-price" id="kp-14k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-        <div class="karat-card" id="karat-9k">
-          <div class="karat-label">9K</div>
-          <div class="karat-purity">375‰</div>
-          <div class="karat-price" id="kp-9k">—</div>
-          <div class="karat-unit">per 10g</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION 2: GOLD PRODUCT TABLE -->
-    <section class="section" aria-label="Gold Products">
-      <div class="section-label">
-        <span class="section-title">Gold Products</span>
-        <span class="live-pill"><span class="live-dot"></span>Live</span>
-      </div>
-      <article class="rate-card" id="goldCard">
-        <div class="table-wrap" id="goldProductsBox">
-          <p class="empty-msg">Connecting to live feed…</p>
-        </div>
-      </article>
-    </section>
-
-    <!-- SECTION 3: MARKET RATES SLIDER -->
-    <section class="section" aria-label="Market Rates">
-      <div class="section-label">
-        <span class="section-title">Market Rates</span>
-        <div class="slider-dots" aria-hidden="true">
-          <span class="dot active" data-index="0"></span>
-          <span class="dot" data-index="1"></span>
-        </div>
-      </div>
-      <div class="slider-track" id="rateSlider">
-        <!-- Future Rates -->
-        <section class="slider-card" aria-label="Future Rates">
-          <div class="card-header">
-            <h2 class="card-title">Future Rates</h2>
-            <span class="live-pill"><span class="live-dot"></span>Live</span>
-          </div>
-          <div class="table-wrap" id="futureBox">
-            <p class="empty-msg">Connecting…</p>
-          </div>
-        </section>
-        <!-- Spot Rates -->
-        <section class="slider-card" aria-label="Spot Rates">
-          <div class="card-header">
-            <h2 class="card-title">Spot Rates</h2>
-            <span class="live-pill"><span class="live-dot"></span>Live</span>
-          </div>
-          <div class="table-wrap" id="spotBox">
-            <p class="empty-msg">Connecting…</p>
-          </div>
-        </section>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- PAGE: SILVER -->
-  <main class="page hidden" id="page-silver" aria-label="Silver Rates">
-
-    <h1 class="page-title">Silver Rates</h1>
-
-    <section class="section" aria-label="Silver Products">
-      <div class="section-label">
-        <span class="section-title">Silver Products</span>
-        <span class="live-pill"><span class="live-dot"></span>Live</span>
-      </div>
-      <article class="rate-card" id="silverCard">
-        <div class="table-wrap" id="silverProductsBox">
-          <p class="empty-msg">Connecting to live feed…</p>
-        </div>
-      </article>
-    </section>
-
-  </main>
-
-  <!-- PAGE: COINS -->
-  <main class="page hidden" id="page-coins" aria-label="Coin Rates">
-
-    <h1 class="page-title">Coin Rates</h1>
-
-    <!-- Coin tab switcher -->
-    <div class="coin-tabs" role="tablist" aria-label="Coin types">
-      <button class="coin-tab active" id="tab-goldcoin" role="tab" aria-selected="true" aria-controls="panel-goldcoin" onclick="switchCoinTab('goldcoin')">
-        <span class="coin-tab-icon">⚜</span> Gold Coin
-      </button>
-      <button class="coin-tab" id="tab-silvercoin" role="tab" aria-selected="false" aria-controls="panel-silvercoin" onclick="switchCoinTab('silvercoin')">
-        <span class="coin-tab-icon">◈</span> Silver Coin
-      </button>
-    </div>
-
-    <!-- Gold Coin Panel -->
-    <div class="coin-panel" id="panel-goldcoin" role="tabpanel" aria-labelledby="tab-goldcoin">
-      <section class="section" aria-label="Gold Coin Rates">
-        <div class="section-label">
-          <span class="section-title">Gold Coin 999</span>
-          <span class="live-pill"><span class="live-dot"></span>Live</span>
-        </div>
-        <article class="rate-card">
-          <div class="table-wrap" id="goldCoinBox">
-            <p class="empty-msg">Connecting to live feed…</p>
-          </div>
-        </article>
-      </section>
-    </div>
-
-    <!-- Silver Coin Panel -->
-    <div class="coin-panel hidden" id="panel-silvercoin" role="tabpanel" aria-labelledby="tab-silvercoin">
-      <section class="section" aria-label="Silver Coin Rates">
-        <div class="section-label">
-          <span class="section-title">Silver Coin 999</span>
-          <span class="live-pill"><span class="live-dot"></span>Live</span>
-        </div>
-        <article class="rate-card">
-          <div class="table-wrap" id="silverCoinBox">
-            <p class="empty-msg">Connecting to live feed…</p>
-          </div>
-        </article>
-      </section>
-    </div>
-
-  </main>
-
-  <!-- BOTTOM NAV (mobile) -->
-  <nav class="bottom-nav" role="navigation" aria-label="Bottom navigation">
-    <button class="bnav-btn active" id="bnav-gold" aria-label="Gold Rates" onclick="switchPage('gold')">
-      <span class="bnav-icon">⚜</span>
-      <span class="bnav-label">Gold</span>
-    </button>
-    <button class="bnav-btn" id="bnav-silver" aria-label="Silver Rates" onclick="switchPage('silver')">
-      <span class="bnav-icon">◈</span>
-      <span class="bnav-label">Silver</span>
-    </button>
-    <button class="bnav-btn" id="bnav-coins" aria-label="Coin Rates" onclick="switchPage('coins')">
-      <span class="bnav-icon">🪙</span>
-      <span class="bnav-label">Coins</span>
-    </button>
+  <!-- ═══ BOTTOM NAV — built by JS from enabled pages ═══ -->
+  <nav id="bottom-nav" class="bottom-nav" role="navigation" aria-label="Bottom navigation">
+    <div id="bottom-nav-inner" class="bottom-nav-inner"></div>
   </nav>
 
-  <!-- FOOTER -->
-  <footer class="site-footer">
-    <p>© 2025 Mahakali Jewellers. All rates are indicative.</p>
-    <p style="margin-top:8px;font-weight:700;font-size:1rem;color:var(--gold);">
-      For orders call: <a href="tel:+919913137069" style="color:inherit;text-decoration:none;">+91 99131 37069</a>
-    </p>
-  </footer>
+  <!-- ═══ FOOTER — built from config ═══ -->
+  <footer id="site-footer" class="site-footer"></footer>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=1"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => { });
-      });
-    }
-  </script>
+  <script src="app.js?v=3"></script>
 </body>
-
 </html>

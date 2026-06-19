@@ -222,52 +222,51 @@ function buildRows(symbols) {
 }
 
 /* ── Base-rate finders for karat/coin calculations ── */
+/*
+  Gold base  = "999 IMP RTGS"    row from Gold Products  → ASK (Sell) price
+  Silver base = "SILVER PETI RTGS" row from Silver Products → ASK (Sell) price
+
+  Both rows are IsDisplay=true (shown in the product tables), so we search
+  state.*.products (already standardized, .ask field = Sell) first.
+  rawRate is kept as a safety fallback using Ask ?? Sell fields.
+*/
 
 function getGoldBase() {
-  /* Strategy 1: raw Rate array – searches original Name field regardless of IsDisplay */
-  const r1 = findRawByName(state.gopnath.rawRate, '999 IMP RTGS');
-  if (r1) return toNum(r1.Bid ?? r1.Buy);
-
-  /* Strategy 2: live array (same items, different reference) */
-  const r2 = findRawByName(state.gopnath.live, '999 IMP RTGS');
-  if (r2) return toNum(r2.Bid ?? r2.Buy);
-
-  /* Strategy 3: visible products (standardized – lowercase name, bid field) */
+  /* Strategy 1 – visible Gold Products (standardized): .ask = Sell */
   const p = state.gopnath.products.find(
     p => String(p?.name ?? '').trim().toLowerCase() === '999 imp rtgs'
   );
-  if (p) return toNum(p.bid);
+  if (p != null && p.ask != null) return toNum(p.ask);
 
-  /* Strategy 4: summary gold bid */
-  const g = chooseRaw('gold');
-  return g ? toNum(g.Bid ?? g.Buy) : null;
-}
-
-function getSilverBase() {
-  const TARGET = 'silver peti rtgs';
-
-  /* Strategy 1: raw Rate array – original Name field, ignores IsDisplay */
-  const r1 = findRawByName(state.swayam.rawRate, 'SILVER PETI RTGS');
-  if (r1) return toNum(r1.Bid ?? r1.Buy);
-
-  /* Strategy 2: live array */
-  const r2 = findRawByName(state.swayam.live, 'SILVER PETI RTGS');
-  if (r2) return toNum(r2.Bid ?? r2.Buy);
-
-  /* Strategy 3: visible products (standardized) */
-  const p = state.swayam.products.find(
-    p => String(p?.name ?? '').trim().toLowerCase() === TARGET
-  );
-  if (p) return toNum(p.bid);
-
-  /* Strategy 4: fuzzy – any row whose name contains 'peti' */
-  const fuzzy = [...state.swayam.rawRate, ...state.swayam.live].find(
-    r => String(r?.Name ?? r?.name ?? '').toLowerCase().includes('peti')
-  );
-  if (fuzzy) return toNum(fuzzy.Bid ?? fuzzy.Buy ?? fuzzy.bid);
+  /* Strategy 2 – raw Rate array: Ask ?? Sell field */
+  const r = findRawByName(state.gopnath.rawRate, '999 IMP RTGS')
+         || findRawByName(state.gopnath.live,    '999 IMP RTGS');
+  if (r) return toNum(r.Ask ?? r.Sell);
 
   return null;
 }
+
+function getSilverBase() {
+  /* Strategy 1 – visible Silver Products (standardized): .ask = Sell */
+  const p = state.swayam.products.find(
+    p => String(p?.name ?? '').trim().toLowerCase() === 'silver peti rtgs'
+  );
+  if (p != null && p.ask != null) return toNum(p.ask);
+
+  /* Strategy 2 – raw Rate array: Ask ?? Sell field */
+  const r = findRawByName(state.swayam.rawRate, 'SILVER PETI RTGS')
+         || findRawByName(state.swayam.live,    'SILVER PETI RTGS');
+  if (r) return toNum(r.Ask ?? r.Sell);
+
+  /* Strategy 3 – fuzzy: any row whose name contains 'peti', Sell price */
+  const fuzzy = [...state.swayam.rawRate, ...state.swayam.live].find(
+    r => String(r?.Name ?? r?.name ?? '').toLowerCase().includes('peti')
+  );
+  if (fuzzy) return toNum(fuzzy.Ask ?? fuzzy.Sell ?? fuzzy.ask);
+
+  return null;
+}
+
 
 /* ── Payload builder ── */
 function buildPayload() {

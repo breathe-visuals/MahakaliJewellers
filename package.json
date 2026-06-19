@@ -1,18 +1,14 @@
 {
-  "name": "mahakali-jewellers-live-rates",
+  "name": "mahakali-jewellers",
   "version": "1.0.0",
-  "description": "Mahakali Jewellers live rate webapp",
+  "description": "Mahakali Jewellers live bullion rate dashboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": {
-    "node": "20.x"
-  },
   "dependencies": {
     "express": "^4.21.2",
-    "pako": "^2.1.0",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   }
 }

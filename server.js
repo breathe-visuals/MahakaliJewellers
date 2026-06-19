@@ -2,344 +2,251 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const { Server } = require('socket.io');
-
-const { createGopnathCollector } = require('./adapters/gopnath');
-const { createSwayamCollector } = require('./adapters/swayam');
-const { createRightGoldCollector } = require('./adapters/rightgold');
+const { io: createClient } = require('socket.io-client');
 
 const app = express();
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: { origin: '*' }
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*' },
 });
 
 const PORT = process.env.PORT || 3000;
 
-const state = {
-  connected: {
-    gopnath: false,
-    swayam: false,
-    coins: false
+/* ── Feed configuration (unchanged from Reference) ── */
+const FEEDS = {
+  gopnath: {
+    url: 'https://starlinesupport.in:10001',
+    room: 'gopnathrefinery',
   },
-  updatedAt: null,
-  errors: {
-    gopnath: null,
-    swayam: null,
-    coins: null
+  swayam: {
+    url: 'https://starlinesolutions.in:10001',
+    room: 'swayamtrading',
   },
-  gold: {
-    all: [],
-    products: [],
-    future: [],
-    spot: [],
-    master: null
-  },
-  silver: {
-    all: [],
-    products: [],
-    future: [],
-    spot: [],
-    master: null
-  },
-  coins: {
-    gold: [],
-    silver: []
-  }
 };
 
-let broadcastTimer = null;
+/* ── Server-side state ── */
+const state = {
+  gopnath: {
+    connected: false,
+    lastSeen: null,
+    live: [],
+    map: {},
+    products: [],
+  },
+  swayam: {
+    connected: false,
+    lastSeen: null,
+    live: [],
+    map: {},
+    products: [],
+  },
+};
 
-function cleanText(value) {
-  return String(value ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function toNum(value) {
-  if (value === undefined || value === null || value === '') return null;
-  const cleaned = String(value).replace(/,/g, '').replace(/[^\d.-]/g, '').trim();
-  if (!cleaned) return null;
+/* ── Utility functions (unchanged from Reference) ── */
+function toNum(val) {
+  if (val === undefined || val === null) return null;
+  const cleaned = String(val).replace(/,/g, '').trim();
+  if (cleaned === '' || cleaned === '--') return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
-function canonical(value) {
-  return cleanText(value).toLowerCase();
-}
-
-function normalizeArray(payload) {
-  if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-
-  if (typeof payload === 'object') {
-    const keys = [
-      'data',
-      'items',
-      'rows',
-      'products',
-      'mainProducts',
-      'referanceProducts',
-      'Rate',
-      'rate'
-    ];
-    for (const key of keys) {
-      if (Array.isArray(payload[key])) return payload[key];
-    }
-  }
-
+function normalizeFeed(data) {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.Rate)) return data.Rate;
   return [];
 }
 
-function normalizeItem(item) {
-  const name = cleanText(
-    item?.name ??
-    item?.Name ??
-    item?.symbol ??
-    item?.Symbol ??
-    item?.title ??
-    item?.Title ??
-    item?.Source
-  );
+function symbolOf(item) {
+  return String(item?.symbol ?? item?.Symbol ?? item?.Source ?? '')
+    .trim()
+    .toLowerCase();
+}
 
+function labelOf(symbol, item) {
+  const sym = String(symbol || '').toLowerCase();
+  if (sym === 'gold') return 'Gold';
+  if (sym === 'silver') return 'Silver';
+  if (sym === 'goldnext') return 'Gold Next';
+  if (sym === 'silvernext') return 'Silver Next';
+  if (sym === 'xauusd') return 'XAU/USD';
+  if (sym === 'xagusd') return 'XAG/USD';
+  if (sym === 'inrspot') return 'INR Spot';
+  if (item?.Name) return String(item.Name).toUpperCase();
+  return String(symbol || '').toUpperCase();
+}
+
+function indexBySymbol(items) {
+  const map = {};
+  for (const item of items) {
+    const sym = symbolOf(item);
+    if (!sym) continue;
+    if (!map[sym]) map[sym] = item;
+  }
+  return map;
+}
+
+function standardizeItem(item, sourceKey) {
+  if (!item) return null;
+  const symbol = symbolOf(item);
   return {
-    name,
-    key: canonical(name),
-    src: cleanText(item?.src ?? item?.source ?? item?.Src ?? item?.Symbol).toLowerCase(),
-    id: item?.id ?? item?.ID ?? null,
-    bid: toNum(item?.bid ?? item?.Bid),
-    ask: toNum(item?.ask ?? item?.Ask),
-    high: toNum(item?.High ?? item?.high),
-    low: toNum(item?.Low ?? item?.low),
-    value: toNum(item?.value ?? item?.Value ?? item?.price ?? item?.Price ?? item?.rate ?? item?.Rate),
-    raw: item
+    symbol,
+    name: item.Name || item.Symbol_Name || item.Symbol || labelOf(symbol, item),
+    bid: toNum(item.Bid ?? item.Buy),
+    ask: toNum(item.Ask ?? item.Sell),
+    high: toNum(item.High),
+    low: toNum(item.Low),
+    open: toNum(item.Open),
+    close: toNum(item.Close),
+    diff: toNum(item.Difference),
+    ltp: toNum(item.LTP),
+    time: item.Time || null,
+    source: sourceKey,
   };
 }
 
-function bestMatch(items, labels) {
-  const cleaned = items.filter(Boolean);
+function visibleProducts(rows, sourceKey) {
+  return rows
+    .filter((row) => String(row?.IsDisplay).toLowerCase() === 'true')
+    .map((row) => standardizeItem(row, sourceKey))
+    .filter(Boolean);
+}
 
-  for (const label of labels) {
-    const key = canonical(label);
-    const exact = cleaned.find((it) => it.key === key);
-    if (exact) return { ...exact, label };
+/* ── Feed handler (unchanged from Reference) ── */
+function handleFeed(sourceKey, data) {
+  try {
+    const items = normalizeFeed(data);
+    if (!items.length) return;
+
+    state[sourceKey].live = items;
+    state[sourceKey].map = indexBySymbol(items);
+    state[sourceKey].lastSeen = new Date().toISOString();
+
+    if (data && Array.isArray(data.Rate)) {
+      state[sourceKey].products = visibleProducts(data.Rate, sourceKey);
+    }
+
+    publish();
+  } catch (err) {
+    console.log(`[${sourceKey}] parse error:`, err.message);
+  }
+}
+
+/* ── Feed connection (unchanged from Reference) ── */
+function connectFeed(sourceKey) {
+  const feed = FEEDS[sourceKey];
+  const socket = createClient(feed.url, {
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    rejectUnauthorized: false,
+  });
+
+  socket.on('connect', () => {
+    state[sourceKey].connected = true;
+    socket.emit('room', feed.room);
+    socket.emit('Client', feed.room);
+    publish();
+  });
+
+  socket.on('disconnect', () => {
+    state[sourceKey].connected = false;
+    publish();
+  });
+
+  socket.on('connect_error', (err) => {
+    state[sourceKey].connected = false;
+    console.log(`[${sourceKey}] connect_error:`, err.message);
+    publish();
+  });
+
+  socket.on('ClientData', (data) => {
+    try {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      state[sourceKey].clientData = parsed;
+    } catch {
+      // ignore
+    }
+  });
+
+  socket.on('message', (data) => handleFeed(sourceKey, data));
+  socket.on('Liverate', (data) => handleFeed(sourceKey, data));
+
+  return socket;
+}
+
+/* ── Symbol routing (unchanged from Reference) ── */
+function chooseRaw(symbol) {
+  const sym = String(symbol || '').toLowerCase();
+
+  if (sym === 'gold') {
+    return state.gopnath.map.gold || state.swayam.map.gold || null;
   }
 
-  for (const label of labels) {
-    const terms = canonical(label).split(' ').filter(Boolean);
-    const fuzzy = cleaned.find((it) => {
-      const hay = it.key;
-      return terms.every((term) => hay.includes(term));
-    });
-    if (fuzzy) return { ...fuzzy, label };
+  if (sym === 'silver') {
+    return state.swayam.map.silver || state.gopnath.map.silver || null;
   }
 
-  return null;
+  return state.swayam.map[sym] || state.gopnath.map[sym] || null;
 }
 
-function pickByRegex(items, regex) {
-  return items.filter((it) => regex.test(it.key));
+function sourceFor(symbol) {
+  const sym = String(symbol || '').toLowerCase();
+  if (sym === 'silver' || sym === 'silvernext') return 'swayam';
+  return state.gopnath.map[sym] ? 'gopnath' : 'swayam';
 }
 
-function mapProduct(it) {
-  if (!it) return it;
+function buildRows(symbols) {
+  return symbols
+    .map((sym) => {
+      const raw = chooseRaw(sym);
+      if (!raw) return null;
+      return standardizeItem(raw, sourceFor(sym));
+    })
+    .filter(Boolean);
+}
+
+/* ── Payload builder (unchanged from Reference) ── */
+function buildPayload() {
   return {
-    ...it,
-    buy: it.bid,
-    sell: it.ask ?? it.bid
+    updatedAt: state.swayam.lastSeen || state.gopnath.lastSeen || null,
+    connected: {
+      gopnath: state.gopnath.connected,
+      swayam: state.swayam.connected,
+    },
+    summary: {
+      gold: standardizeItem(chooseRaw('gold'), 'gopnath'),
+      silver: standardizeItem(chooseRaw('silver'), 'swayam'),
+    },
+    goldProducts: state.gopnath.products,
+    silverProducts: state.swayam.products,
+    futureRows: buildRows(['gold', 'silver', 'goldnext', 'silvernext']),
+    spotRows: buildRows(['xauusd', 'xagusd', 'inrspot']),
   };
 }
 
-function publicState() {
-  return {
-    connected: state.connected,
-    updatedAt: state.updatedAt,
-    errors: state.errors,
-    gold: {
-      master: mapProduct(state.gold.master),
-      products: (state.gold.products || []).map(mapProduct),
-      future: (state.gold.future || []).map(mapProduct),
-      spot: (state.gold.spot || []).map(mapProduct)
-    },
-    silver: {
-      master: mapProduct(state.silver.master),
-      products: (state.silver.products || []).map(mapProduct),
-      future: (state.silver.future || []).map(mapProduct),
-      spot: (state.silver.spot || []).map(mapProduct)
-    },
-    coins: state.coins
-  };
+function publish() {
+  io.emit('rates:update', buildPayload());
 }
 
-function broadcast() {
-  state.updatedAt = new Date().toISOString();
+/* ── Start feeds ── */
+connectFeed('gopnath');
+connectFeed('swayam');
 
-  if (broadcastTimer) return;
-  broadcastTimer = setTimeout(() => {
-    broadcastTimer = null;
-    io.emit('state', publicState());
-  }, 300);
-}
-
-function isFutureLike(key) {
-  return /(future|next|goldnext|silvernext|comex)/i.test(key);
-}
-
-function isSpotLike(key) {
-  return /(spot|inrspot|inr spot|xauusd|xagusd|xau usd|xag usd|comex)/i.test(key);
-}
-
-function updateGold(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
-  if (!items.length) return;
-
-  state.gold.all = items;
-
-  state.gold.master =
-    bestMatch(items, ['999 IMP RTGS', 'IMP GOLD RTGS', '999 IMP']) ||
-    items[0] ||
-    null;
-
-  state.gold.products = items.filter((it) => !isFutureLike(it.key) && !isSpotLike(it.key));
-  state.gold.future = items.filter((it) => isFutureLike(it.key));
-  state.gold.spot = items.filter((it) => isSpotLike(it.key));
-
-  broadcast();
-}
-
-function updateSilver(payload) {
-  const items = normalizeArray(payload).map(normalizeItem).filter((it) => it.name);
-  if (!items.length) return;
-
-  state.silver.all = items;
-
-  state.silver.master =
-    bestMatch(items, ['98.S RTGS', 'IMP SILVER RTGS', 'SILVER RTGS']) ||
-    items[0] ||
-    null;
-
-  state.silver.products = items.filter((it) => !isFutureLike(it.key) && !isSpotLike(it.key));
-  state.silver.future = items.filter((it) => isFutureLike(it.key));
-  state.silver.spot = items.filter((it) => isSpotLike(it.key));
-
-  broadcast();
-}
-
-function updateCoins(result) {
-  if (!result) return;
-
-  const goldCoins = Array.isArray(result.goldCoins) ? result.goldCoins : [];
-  const silverCoins = Array.isArray(result.silverCoins) ? result.silverCoins : [];
-
-  if (!goldCoins.length && !silverCoins.length) return;
-
-  state.coins.gold = goldCoins;
-  state.coins.silver = silverCoins;
-  state.connected.coins = true;
-  state.errors.coins = null;
-
-  broadcast();
-}
-
-createGopnathCollector({
-  onConnect: () => {
-    state.connected.gopnath = true;
-    state.errors.gopnath = null;
-    broadcast();
-  },
-  onDisconnect: () => {
-    state.connected.gopnath = false;
-    broadcast();
-  },
-  onError: (err) => {
-    state.connected.gopnath = false;
-    state.errors.gopnath = err?.message || 'gopnath connect_error';
-    broadcast();
-  },
-  onData: updateGold
-});
-
-createSwayamCollector({
-  onConnect: () => {
-    state.connected.swayam = true;
-    state.errors.swayam = null;
-    broadcast();
-  },
-  onDisconnect: () => {
-    state.connected.swayam = false;
-    broadcast();
-  },
-  onError: (err) => {
-    state.connected.swayam = false;
-    state.errors.swayam = err?.message || 'swayam connect_error';
-    broadcast();
-  },
-  onData: updateSilver
-});
-
-createRightGoldCollector({
-  onConnect: () => {
-    state.connected.coins = true;
-    state.errors.coins = null;
-    broadcast();
-  },
-  onDisconnect: () => {
-    state.connected.coins = false;
-    broadcast();
-  },
-  onError: (err) => {
-    state.connected.coins = false;
-    state.errors.coins = err?.message || 'rightgold connect_error';
-    broadcast();
-  },
-  onCoins: updateCoins
-});
-
+/* ── Static files served from public/ ── */
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/Media', express.static(path.join(__dirname, 'Media')));
 
-app.get('/health', (req, res) => {
-  res.json({
-    ok: true,
-    updatedAt: state.updatedAt,
-    connected: state.connected
-  });
+/* ── API route ── */
+app.get('/api/rates', (req, res) => {
+  res.json(buildPayload());
 });
 
-app.get('/api/state', (req, res) => {
-  res.json(publicState());
-});
-
-app.get('/api/coins', (req, res) => {
-  res.json({
-    connected: state.connected.coins,
-    updatedAt: state.updatedAt,
-    gold: state.coins.gold,
-    silver: state.coins.silver,
-    error: state.errors.coins
-  });
-});
-
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+/* ── Emit snapshot to each new client ── */
 io.on('connection', (socket) => {
-  socket.emit('state', publicState());
-
-  socket.on('request-state', () => {
-    socket.emit('state', publicState());
-  });
+  socket.emit('rates:update', buildPayload());
 });
 
-process.on('unhandledRejection', (err) => {
-  console.error('unhandledRejection:', err);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('uncaughtException:', err);
-});
-
-server.listen(PORT, () => {
-  console.log(`Mahakali Jewellers running on port ${PORT}`);
+httpServer.listen(PORT, () => {
+  console.log(`Mahakali Jewellers running on http://localhost:${PORT}`);
 });

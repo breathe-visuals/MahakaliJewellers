@@ -1,39 +1,34 @@
-# Mahakali Jewellers Live Rate Web App
+# Mahakali Jewellers – Live Rates
 
-Three-page live rate site for:
+Live gold and silver bullion rate dashboard for Mahakali Jewellers.
 
-- Gold page sourced from Gopnath
-- Silver page sourced from Swayam
-- Coin page sourced from the Right Gold coin iframe
-
-## Local run
+## Setup
 
 ```bash
 npm install
 npm start
 ```
 
-Open:
+Open: http://localhost:3000
 
-- http://localhost:3000
+## Architecture
 
-## Render settings
+Built on the Reference (Dharamraj) socket architecture — unchanged.
 
-Build command:
+- `server.js` — Express + Socket.IO server, connects to Gopnath (gold) and Swayam (silver) feeds
+- `public/index.html` — 3-page SPA (Gold, Silver, Coins)
+- `public/app.js` — Socket.IO client, all rendering logic
+- `public/styles.css` — Design system (#003336 brand, #D9B25F gold)
+- `public/sw.js` — Service worker (shell cache only, never caches live rates)
 
-```bash
-npm install
-```
+## Pages
 
-Start command:
+- **Gold** — Karat rates (24K–9K), Gold Product Table, Market Rates (Future/Spot slider)
+- **Silver** — Silver Product Table only
+- **Coins** — Gold Coin 999 rates + Silver Coin 999 rates (tabbed)
 
-```bash
-node server.js
-```
+## Data Sources
 
-## Notes
-
-- The app uses your own Node.js server and Socket.IO for live updates.
-- Upstream source branding stays hidden from the frontend.
-- The coin collector uses Playwright, and `postinstall` downloads Chromium automatically.
-- If you want to point the coin collector somewhere else, set `RIGHTGOLD_URL`.
+Gold data → Gopnath feed  
+Silver data → Swayam feed  
+All updates via WebSocket only — no polling, no API refresh.

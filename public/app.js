@@ -896,35 +896,6 @@ async function doSharePage(pageId) {
   }
 }
 
-
-    const biz  = CFG?.site?.business || {};
-    const fname = `${(biz.name || 'rates').replace(/\s+/g,'-')}-${new Date().toISOString().slice(0,10)}.png`;
-    const file  = new File([blob], fname, { type: 'image/png' });
-
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: `${biz.name || 'Live Rates'} – ${new Date().toLocaleDateString('en-IN')}`,
-        text:  'Live bullion rates — tap to view image',
-      });
-    } else {
-      /* Fallback: trigger download */
-      const url = URL.createObjectURL(blob);
-      const a   = document.createElement('a');
-      a.href     = url;
-      a.download = fname;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 8000);
-    }
-  } catch (err) {
-    if (err.name !== 'AbortError') console.warn('[share]', err);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = `<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg> Share Rates`; }
-  }
-}
-
 /* ================================================================
    GENERATE RATE IMAGE — page-specific branded PNG (Canvas API)
    pageId: 'gold' | 'silver' | 'coins'

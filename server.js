@@ -28,10 +28,12 @@ function loadConfig(filename) {
 const siteConfig  = loadConfig('site-config.json');
 const adminConfig = loadConfig('admin-config.json');
 
-/* Config-driven base row names */
-const GOLD_BASE_ROW   = adminConfig?.goldRates?.baseRow   || '999 IMP RTGS';
-const GOLD_COIN_ROW   = adminConfig?.goldCoins?.baseRow   || '999 IMP RTGS';
-const SILVER_COIN_ROW = adminConfig?.silverCoins?.baseRow || 'SILVER PETI RTGS';
+/* Config-driven APX source rows & GST % */
+const APX_GOLD_SOURCE_ROW   = adminConfig?.goldRates?.apxSourceRow   || '999 IMP GOLD';
+const APX_GOLD_GST_PCT      = adminConfig?.goldRates?.apxGstPercent  ?? 3;
+const APX_SILVER_SOURCE_ROW = adminConfig?.silverRates?.apxSourceRow || 'SILVER PETI RTGS';
+const APX_SILVER_GST_PCT    = adminConfig?.silverRates?.apxGstPercent ?? 3;
+const SILVER_COIN_ROW       = adminConfig?.silverCoins?.baseRow      || 'SILVER PETI RTGS';
 
 /* ══════════════════════════════════════════════════════════════
    FEED CONFIGURATION  (unchanged from Reference)
@@ -242,14 +244,29 @@ function getBaseAsk(sourceKey, rowName) {
   return null;
 }
 
-function getGoldBase()      { return getBaseAsk('gopnath', GOLD_BASE_ROW);   }
-function getGoldCoinBase()  { return getBaseAsk('gopnath', GOLD_COIN_ROW);   }
-function getSilverCoinBase(){ return getBaseAsk('swayam',  SILVER_COIN_ROW); }
+/* APX W/O GST: take source-row Sell price and subtract GST % */
+function getGoldApx() {
+  const raw = getBaseAsk('gopnath', APX_GOLD_SOURCE_ROW);
+  if (raw === null) return null;
+  return Math.round(raw / (1 + APX_GOLD_GST_PCT / 100));
+}
+function getSilverApx() {
+  const raw = getBaseAsk('swayam', APX_SILVER_SOURCE_ROW);
+  if (raw === null) return null;
+  return Math.round(raw / (1 + APX_SILVER_GST_PCT / 100));
+}
+
+/* goldBase & goldCoinBase are now the APX W/O GST value */
+function getGoldBase()      { return getGoldApx(); }
+function getGoldCoinBase()  { return getGoldApx(); }
+function getSilverCoinBase(){ return getBaseAsk('swayam', SILVER_COIN_ROW); }
 
 /* ══════════════════════════════════════════════════════════════
    PAYLOAD BUILDER
    ══════════════════════════════════════════════════════════════ */
 function buildPayload() {
+  const goldApxVal   = getGoldApx();
+  const silverApxVal = getSilverApx();
   return {
     updatedAt: state.swayam.lastSeen || state.gopnath.lastSeen || null,
     connected: { gopnath: state.gopnath.connected, swayam: state.swayam.connected },
@@ -261,10 +278,12 @@ function buildPayload() {
     silverProducts: state.swayam.products,
     futureRows: buildRows(['gold', 'silver']),
     spotRows:   buildRows(['xauusd', 'xagusd', 'inrspot']),
-    /* Config-driven base rates (Sell price of configured base rows) */
-    goldBase:      getGoldBase(),
-    goldCoinBase:  getGoldCoinBase(),
-    silverCoinBase: getSilverCoinBase(),
+    /* Config-driven base rates */
+    goldBase:       goldApxVal,          /* APX W/O GST — used for karat cards */
+    goldCoinBase:   goldApxVal,          /* APX W/O GST — used for gold coin prices */
+    silverCoinBase: getSilverCoinBase(), /* SILVER PETI RTGS — used for silver coin prices */
+    goldApxBase:    goldApxVal,          /* Exposed separately for the APX row in gold products */
+    silverApxBase:  silverApxVal,        /* Exposed separately for the APX row in silver products */
   };
 }
 
@@ -296,10 +315,12 @@ app.get('/api/rates', (req, res) => {
 /* Debug: shows all raw product names and resolved base rates */
 app.get('/api/debug', (req, res) => {
   res.json({
-    goldBase:      getGoldBase(),
-    goldCoinBase:  getGoldCoinBase(),
+    goldApxBase:    getGoldApx(),
+    silverApxBase:  getSilverApx(),
+    goldBase:       getGoldBase(),
+    goldCoinBase:   getGoldCoinBase(),
     silverCoinBase: getSilverCoinBase(),
-    configuredRows: { GOLD_BASE_ROW, GOLD_COIN_ROW, SILVER_COIN_ROW },
+    configuredRows: { APX_GOLD_SOURCE_ROW, APX_SILVER_SOURCE_ROW, SILVER_COIN_ROW },
     gopnathProducts: state.gopnath.rawRate.map(r => ({ name: r?.Name, ask: r?.Ask ?? r?.Sell, display: r?.IsDisplay })),
     swayamProducts:  state.swayam.rawRate.map(r =>  ({ name: r?.Name, ask: r?.Ask ?? r?.Sell, display: r?.IsDisplay })),
   });

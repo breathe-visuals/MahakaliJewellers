@@ -634,6 +634,63 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 .coin-price.up   { color: var(--up-fg); }
 .coin-price.down { color: var(--down-fg); }
 
+/* ---------- APX W/O GST ROW (below product tables) ---------- */
+.apx-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(217,178,95,0.12), rgba(217,178,95,0.06));
+  border: 1.5px solid rgba(217,178,95,0.45);
+  border-radius: var(--radius-xs);
+  gap: 10px;
+}
+.apx-label {
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--gold-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.apx-value {
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gold-dark);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ---------- KARAT CARD — W/O GST BADGE (24K) ---------- */
+.karat-wogst {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gold-dark);
+  background: rgba(217,178,95,0.15);
+  border: 1px solid rgba(217,178,95,0.4);
+  border-radius: 4px;
+  padding: 1px 4px;
+  vertical-align: middle;
+  margin-left: 3px;
+  line-height: 1.4;
+}
+
+/* ---------- COIN NOTE (below coin table) ---------- */
+.coin-note {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 4px 0;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
 /* ---------- BOTTOM NAV (mobile-only, PWA-safe) ---------- */
 :root {
   /* Real bottom nav height = icon area + OS home-indicator */

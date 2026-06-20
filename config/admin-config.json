@@ -19,7 +19,9 @@
     "enablePWA": true
   },
   "goldRates": {
-    "baseRow": "999 IMP RTGS",
+    "baseRow": "APX_GOLD",
+    "apxSourceRow": "999 IMP GOLD",
+    "apxGstPercent": 3,
     "karats": [
       {
         "name": "24K",
@@ -59,85 +61,77 @@
     ]
   },
   "goldCoins": {
-    "baseRow": "999 IMP RTGS",
+    "baseRow": "APX_GOLD",
     "divisor": 10,
+    "premiumPerGram": 100,
     "rows": [
       {
         "name": "GOLD COIN 999 1 GM",
-        "grams": 1,
-        "premium": 1000
+        "grams": 1
       },
       {
         "name": "GOLD COIN 999 2 GM",
-        "grams": 2,
-        "premium": 2000
+        "grams": 2
       },
       {
         "name": "GOLD COIN 999 5 GM",
-        "grams": 5,
-        "premium": 5000
+        "grams": 5
       },
       {
         "name": "GOLD COIN 999 10 GM",
-        "grams": 10,
-        "premium": 1000
+        "grams": 10
       },
       {
         "name": "GOLD COIN 999 20 GM",
-        "grams": 20,
-        "premium": 2000
+        "grams": 20
       },
       {
         "name": "GOLD COIN 999 50 GM",
-        "grams": 50,
-        "premium": 5000
+        "grams": 50
       },
       {
         "name": "GOLD COIN 999 100 GM",
-        "grams": 100,
-        "premium": 10000
+        "grams": 100
       }
     ]
   },
   "silverCoins": {
     "baseRow": "SILVER PETI RTGS",
     "divisor": 1000,
+    "premiumPerGram": 12,
     "rows": [
       {
         "name": "SILVER COIN 999 5 GM",
-        "grams": 5,
-        "premium": 200
+        "grams": 5
       },
       {
         "name": "SILVER COIN 999 10 GM",
-        "grams": 10,
-        "premium": 500
+        "grams": 10
       },
       {
         "name": "SILVER COIN 999 20 GM",
-        "grams": 20,
-        "premium": 1000
+        "grams": 20
       },
       {
         "name": "SILVER COIN 999 50 GM",
-        "grams": 50,
-        "premium": 1000
+        "grams": 50
       },
       {
         "name": "SILVER COIN 999 100 GM",
-        "grams": 100,
-        "premium": 1500
+        "grams": 100
       },
       {
         "name": "SILVER COIN 999 500 GM",
-        "grams": 500,
-        "premium": 2500
+        "grams": 500
       },
       {
         "name": "SILVER COIN 999 1 KG",
-        "grams": 1000,
-        "premium": 5000
+        "grams": 1000
       }
     ]
+  },
+  "silverRates": {
+    "apxSourceRow": "SILVER PETI RTGS",
+    "apxGstPercent": 3
   }
 }

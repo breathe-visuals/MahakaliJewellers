@@ -269,7 +269,7 @@ function buildGoldPage(admin) {
   if (secs.karatRates !== false && gr.karats?.length) {
     const cards = gr.karats.map(k => `
       <div class="karat-card" id="karat-card-${kid(k.name)}">
-        <div class="karat-label">${esc(k.name)}</div>
+        <div class="karat-label">${esc(k.name)}${k.name === '24K' ? ' <span class="karat-wogst">W/O GST</span>' : ''}</div>
         <div class="karat-purity">${esc(k.purity || '').replace(/‰/g, '%')}</div>
         <div class="karat-price" id="kp-${kid(k.name)}">—</div>
         <div class="karat-unit">per 10g</div>
@@ -279,7 +279,7 @@ function buildGoldPage(admin) {
     <section class="section" aria-label="Karat Rates">
       <div class="section-label">
         <span class="section-title">Karat Rates</span>
-        <span class="section-subtitle">Base: ${esc(gr.baseRow || '999 IMP RTGS')} &nbsp;·&nbsp; Sell</span>
+        <span class="section-subtitle">Base: APX W/O GST &nbsp;·&nbsp; Sell</span>
       </div>
       <div class="karat-grid" id="karatGrid">${cards}</div>
     </section>`;
@@ -295,6 +295,10 @@ function buildGoldPage(admin) {
       <article class="rate-card">
         <div class="table-wrap" id="goldProductsBox">
           <p class="empty-msg">Connecting to live feed…</p>
+        </div>
+        <div class="apx-row" id="goldApxRow">
+          <span class="apx-label">APX W/O GST</span>
+          <span class="apx-value" id="goldApxVal">—</span>
         </div>
       </article>
     </section>`;
@@ -358,6 +362,10 @@ function buildSilverPage(admin) {
         <div class="table-wrap" id="silverProductsBox">
           <p class="empty-msg">Connecting to live feed…</p>
         </div>
+        <div class="apx-row" id="silverApxRow">
+          <span class="apx-label">APX W/O SILVER</span>
+          <span class="apx-value" id="silverApxVal">—</span>
+        </div>
       </article>
     </section>`;
   }
@@ -399,6 +407,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="goldCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
+        <p class="coin-note">* Rates include making charges</p>
       </section>
     </div>`;
   }
@@ -414,6 +423,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="silverCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
+        <p class="coin-note">* Rates include making charges</p>
       </section>
     </div>`;
   }
@@ -686,9 +696,9 @@ function renderKaratRates(goldBase) {
 }
 
 /* ================================================================
-   COIN TABLE RENDERER
+   COIN TABLE RENDERER  (per-gram premium)
    ================================================================ */
-function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
+function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGram, prevKey) {
   const container = q(containerId);
   if (!container || !configRows?.length) return;
 
@@ -700,7 +710,7 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
 
   if (!table || !tbody) {
     const rows = configRows.map((c, i) => {
-      const price = base1u !== null ? Math.round(base1u * c.grams + c.premium) : null;
+      const price = base1u !== null ? Math.round(base1u * c.grams + premiumPerGram * c.grams) : null;
       return `<tr data-coin="${esc(c.name)}">
         <td class="rowhead">${esc(c.name)}</td>
         <td><span class="coin-price" id="${containerId}-r${i}">${price !== null ? price.toLocaleString('en-IN') : '—'}</span></td>
@@ -717,10 +727,10 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, prevKey) {
       const el = q(`${containerId}-r${i}`);
       if (!el) return;
 
-      const price    = base1u !== null ? Math.round(base1u * c.grams + c.premium) : null;
+      const price    = base1u !== null ? Math.round(base1u * c.grams + premiumPerGram * c.grams) : null;
       const prevBase = prev[prevKey];
       const prevU    = prevBase !== null ? prevBase / divisor : null;
-      const prevP    = prevU   !== null ? Math.round(prevU * c.grams + c.premium) : null;
+      const prevP    = prevU   !== null ? Math.round(prevU * c.grams + premiumPerGram * c.grams) : null;
 
       const text = price !== null ? price.toLocaleString('en-IN') : '—';
       if (el.textContent !== text) el.textContent = text;
@@ -745,6 +755,18 @@ function renderAll(data) {
   renderTable(dom.goldProductsBox,   data?.goldProducts,   prev.goldProducts,   'mini');
   renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
 
+  /* APX W/O GST rows */
+  const goldApxEl   = q('goldApxVal');
+  const silverApxEl = q('silverApxVal');
+  if (goldApxEl) {
+    const v = toNum(data?.goldApxBase);
+    goldApxEl.textContent = v !== null ? v.toLocaleString('en-IN') : '—';
+  }
+  if (silverApxEl) {
+    const v = toNum(data?.silverApxBase);
+    silverApxEl.textContent = v !== null ? v.toLocaleString('en-IN') : '—';
+  }
+
   renderTable(dom.futureBox, data?.futureRows, prev.future, 'rate');
   renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');
 
@@ -752,8 +774,10 @@ function renderAll(data) {
 
   const goldDiv   = admin.goldCoins?.divisor   || 10;
   const silverDiv = admin.silverCoins?.divisor || 1000;
-  renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   'goldCoinBase');
-  renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, 'silverCoinBase');
+  const goldPremiumPerGram   = admin.goldCoins?.premiumPerGram   ?? 100;
+  const silverPremiumPerGram = admin.silverCoins?.premiumPerGram ?? 12;
+  renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   goldPremiumPerGram,   'goldCoinBase');
+  renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, silverPremiumPerGram, 'silverCoinBase');
 
   prev.goldProducts   = updatePrevMap(data?.goldProducts);
   prev.silverProducts = updatePrevMap(data?.silverProducts);
@@ -1134,8 +1158,32 @@ async function generateRateImage(pageId) {
 
   drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds);
-  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv);
-  drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv);
+
+  function drawCoinTable(title,titleCol,rows,baseVal,divisor,premiumPerGram){
+    if(!rows.length||baseVal===null)return;
+    const base1u=baseVal/divisor;
+    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
+    ctx.fillText(title,PAD,y+22);y+=36;
+    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
+    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
+    ctx.fillText('PRODUCT',PAD+10,y+28);
+    ctx.textAlign='right';ctx.fillText('PRICE (\u20b9)',W-PAD,y+28);ctx.textAlign='left';y+=RLINE;
+    rows.forEach((c,i)=>{
+      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
+      const price=Math.round(base1u*c.grams + premiumPerGram*c.grams);
+      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='16px Inter,Arial,sans-serif';
+      ctx.fillText(String(c.name||'').substring(0,32),PAD+10,y+30);
+      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 24px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),W-PAD,y+30);
+      ctx.textAlign='left';y+=RLINE;
+    });
+    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
+  }
+
+  const gcPPG = admin.goldCoins?.premiumPerGram   ?? 100;
+  const scPPG = admin.silverCoins?.premiumPerGram ?? 12;
+  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG);
+  drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG);
 
   const fy=Math.max(y+14,H-82);
   ctx.fillStyle=GOLD;ctx.fillRect(PAD,fy,W-PAD*2,1.5);

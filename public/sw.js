@@ -4,7 +4,7 @@
    Falls back to cache when offline.
    ================================================================ */
 
-const CACHE_NAME = 'jewellers-shell-v12';
+const CACHE_NAME = 'jewellers-shell-v13';
 
 const SHELL_ASSETS = [
   '/',

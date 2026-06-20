@@ -53,9 +53,11 @@ body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
+  /* dvh = dynamic viewport height — accounts for iOS/Android browser chrome */
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: calc(var(--bnav-h) + var(--contact-h));
+  /* Space for fixed bottom nav + OS home indicator */
+  padding-bottom: var(--bnav-h);
 }
 
 /* ---------- HEADER ---------- */
@@ -632,51 +634,73 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 .coin-price.up   { color: var(--up-fg); }
 .coin-price.down { color: var(--down-fg); }
 
-/* ---------- BOTTOM NAV (mobile-only) ---------- */
+/* ---------- BOTTOM NAV (mobile-only, PWA-safe) ---------- */
+:root {
+  /* Real bottom nav height = icon area + OS home-indicator */
+  --bnav-icon-h: 56px;
+  --bnav-h: calc(var(--bnav-icon-h) + env(safe-area-inset-bottom, 0px));
+}
 .bottom-nav {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  height: var(--bnav-h);
+  /* Don't set height — let padding-bottom create the safe-area gap */
   z-index: 300;
   background: var(--brand);
   display: flex;
   align-items: stretch;
   border-top: 2px solid var(--gold);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: 12px;
-  padding-right: 12px;
+  /* Safe-area padding so content sits above home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.bottom-nav-inner {
+  display: flex;
+  width: 100%;
+  /* Fixed height for the tappable icon area only */
+  height: var(--bnav-icon-h);
+  align-items: stretch;
 }
 .bnav-btn {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
+  border-top: 3px solid transparent;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 8px 4px;
-  color: rgba(255,255,255,0.55);
-  transition: color 0.2s, background 0.2s;
-  border-top: 3px solid transparent;
+  gap: 2px;
+  /* Enough padding but never overflow */
+  padding: 6px 2px;
+  color: rgba(255,255,255,0.5);
+  transition: color 0.2s;
   -webkit-tap-highlight-color: transparent;
+  overflow: hidden;
 }
-.bnav-btn:active { background: rgba(255,255,255,0.06); }
+.bnav-btn:active { opacity: 0.7; }
+/* Tab-style: gold underline on active, no background box */
 .bnav-btn.active {
   color: var(--gold);
   border-top-color: var(--gold);
-  background: rgba(255, 255, 255, 0.08);
 }
 .bnav-icon {
-  font-size: 1.5rem;
-  line-height: 1;
+  /* SVG icon size — fixed so it never clips */
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+.bnav-icon svg { width: 100%; height: 100%; }
 .bnav-label {
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -768,7 +792,8 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   align-items: flex-end;
   justify-content: center;
   animation: fade-in 0.2s ease;
-  padding-bottom: calc(var(--bnav-h) + var(--contact-h) + env(safe-area-inset-bottom));
+  /* Sit on top of the bottom nav (icon area only — safe-area already in .bottom-nav) */
+  padding-bottom: var(--bnav-icon-h);
 }
 .share-modal {
   background: var(--surface);
@@ -853,37 +878,31 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 .share-btn:hover    { opacity: 0.9; }
 .share-btn:disabled { opacity: 0.6; cursor: wait; }
 
-/* ---------- BOTTOM NAV INNER ---------- */
-.bottom-nav-inner {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  align-items: stretch;
-}
+/* .bottom-nav-inner is now defined alongside .bottom-nav above */
 
 /* ============================================================
    RESPONSIVE
    ============================================================ */
 
-/* Tablet portrait (768+): larger fonts, still bottom nav */
+/* Tablet portrait (768+): still uses bottom nav */
 @media (min-width: 768px) {
-  .header-logo { height: 70px; }
-  .header-inner { padding: 12px 32px; }
-  .karat-grid { grid-template-columns: repeat(7, 1fr); gap: 10px; }
-  .karat-label { font-size: 1.4rem; }
-  .karat-price { font-size: 1.15rem; }
-  .karat-card { padding: 14px 8px; }
-  .page { padding: 24px 32px 28px; }
+  .header-logo { height: 68px; }
+  .header-inner { padding: 10px 28px; }
+  .karat-grid { grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .karat-label { font-size: 1.25rem; }
+  .karat-price { font-size: 1.05rem; }
+  .karat-card { padding: 12px 6px; }
+  .page { padding: 20px 28px 24px; }
   .slider-card { flex: 0 0 calc(50% - 8px); }
   .slider-dots { display: none; }
-  table { font-size: 1rem; }
-  .chip-val { font-size: 1.25rem; min-width: 56px; padding: 3px 9px; }
-  .coin-price { font-size: 1.25rem; }
-  .rowhead { font-size: 1rem; }
-  thead th { font-size: 0.85rem; }
-  tbody td { font-size: 1.05rem; }
-  .section-title { font-size: 1.2rem; }
-  .page-title { font-size: 1.8rem; }
+  table { font-size: 0.9rem; }
+  .chip-val { font-size: 1.1rem; min-width: 50px; padding: 3px 8px; }
+  .coin-price { font-size: 1.1rem; }
+  .rowhead { font-size: 0.9rem; }
+  thead th { font-size: 0.8rem; }
+  tbody td { font-size: 0.95rem; }
+  .section-title { font-size: 1.1rem; }
+  .page-title { font-size: 1.6rem; }
 }
 
 /* Desktop (992+): 3-column header (nav | LOGO | nav), hide mobile elements */
@@ -951,51 +970,68 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 
 /* Very small (≤360 px) */
 @media (max-width: 360px) {
-  .header-logo { height: 75px; }
-  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 5px; }
-  .karat-label { font-size: 1.15rem; }
-  .karat-price { font-size: 1.15rem; }
-  .karat-purity { font-size: 0.55rem; }
-  .karat-card  { padding: 8px 4px; }
+  .header-logo { height: 68px; }
+  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .karat-label { font-size: 1rem; }
+  .karat-price { font-size: 1rem; }
+  .karat-purity { font-size: 0.5rem; }
+  .karat-card  { padding: 7px 3px; }
   #karat-card-24k { grid-column: span 2; }
-  #karat-card-24k .karat-price { font-size: 1.3rem; }
-  .chip-val    { font-size: 1.05rem; min-width: 0; }
-  .coin-price  { font-size: 1.05rem; }
-  thead th     { font-size: 0.68rem; padding: 7px 4px; }
-  tbody td     { font-size: 0.85rem; padding: 7px 4px; }
-  .rowhead     { font-size: 0.8rem; }
-  .page        { padding: 12px 10px 20px; gap: 14px; }
-  .section     { gap: 10px; }
-  .marquee-clock  { font-size: 0.75rem; }
-  .last-updated   { font-size: 0.75rem; }
-  .ticker-inner   { font-size: 0.8rem; }
+  #karat-card-24k .karat-price { font-size: 1.15rem; }
+  .chip-val    { font-size: 0.88rem; min-width: 0; }
+  .coin-price  { font-size: 0.88rem; }
+  thead th     { font-size: 0.62rem; padding: 6px 3px; }
+  tbody td     { font-size: 0.8rem; padding: 6px 3px; }
+  .rowhead     { font-size: 0.75rem; }
+  .page        { padding: 10px 8px 16px; gap: 12px; }
+  .section     { gap: 8px; }
+  .marquee-clock  { font-size: 0.7rem; }
+  .last-updated   { font-size: 0.7rem; }
+  .ticker-inner   { font-size: 0.72rem; }
+  .section-title  { font-size: 0.95rem; }
+  .page-title     { font-size: 1.3rem; }
+  .bnav-label     { font-size: 0.58rem; }
 }
 
 @media (max-width: 767px) {
-  .ticker-inner   { font-size: 0.8rem; }
-  .marquee-clock  { font-size: 0.78rem; }
+  .ticker-inner   { font-size: 0.78rem; }
+  .marquee-clock  { font-size: 0.75rem; }
 }
 
 /* Small mobile (361–480 px) */
 @media (min-width: 361px) and (max-width: 480px) {
-  .header-logo { height: 95px; }
-  .page        { padding: 16px 14px 24px; gap: 18px; }
-  .section     { gap: 14px; }
-  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 8px; }
-  .karat-card  { padding: 10px 6px; }
-  .karat-label { font-size: 1.35rem; }
-  .karat-price { font-size: 1.25rem; }
-  .karat-purity { font-size: 0.6rem; }
+  .header-logo { height: 82px; }
+  .page        { padding: 14px 12px 20px; gap: 14px; }
+  .section     { gap: 12px; }
+  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .karat-card  { padding: 9px 5px; }
+  .karat-label { font-size: 1.15rem; }
+  .karat-price { font-size: 1.05rem; }
+  .karat-purity { font-size: 0.55rem; }
   #karat-card-24k { grid-column: span 2; }
-  #karat-card-24k .karat-price { font-size: 1.45rem; }
-  table        { font-size: 0.95rem; }
-  thead th     { font-size: 0.75rem; padding: 10px 6px; }
-  tbody td     { font-size: 1rem; padding: 10px 6px; }
-  .chip-val    { font-size: 1.15rem; }
-  .coin-price  { font-size: 1.15rem; }
-  .rowhead     { font-size: 0.9rem; }
-  .section-title { font-size: 1.15rem; }
-  .page-title  { font-size: 1.6rem; }
+  #karat-card-24k .karat-price { font-size: 1.2rem; }
+  table        { font-size: 0.85rem; }
+  thead th     { font-size: 0.68rem; padding: 8px 5px; }
+  tbody td     { font-size: 0.88rem; padding: 8px 5px; }
+  .chip-val    { font-size: 0.95rem; }
+  .coin-price  { font-size: 0.95rem; }
+  .rowhead     { font-size: 0.82rem; }
+  .section-title { font-size: 1rem; }
+  .page-title  { font-size: 1.4rem; }
+  .bnav-label  { font-size: 0.62rem; }
+}
+
+/* Medium mobile (481–767px) */
+@media (min-width: 481px) and (max-width: 767px) {
+  .header-logo { height: 88px; }
+  .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .karat-label { font-size: 1.25rem; }
+  .karat-price { font-size: 1.1rem; }
+  .chip-val    { font-size: 1.05rem; }
+  .coin-price  { font-size: 1.05rem; }
+  table        { font-size: 0.9rem; }
+  thead th     { font-size: 0.72rem; }
+  tbody td     { font-size: 0.92rem; }
 }
 
 /* Prevent body-level horizontal scroll */

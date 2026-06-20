@@ -278,7 +278,7 @@ function buildGoldPage(admin) {
     h += `
     <section class="section" aria-label="Karat Rates">
       <div class="section-label">
-        <span class="section-title">Karat Rates <span class="karat-wogst-badge">W/O GST</span></span>
+        <span class="section-title">Karat Rates <span class="karat-wogst-badge">BEFORE GST</span></span>
         <span class="section-subtitle">Base: APX (excl. GST) &nbsp;·&nbsp; Sell</span>
       </div>
       <div class="karat-grid" id="karatGrid">${cards}</div>
@@ -399,7 +399,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="goldCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
-        <p class="coin-note">* Rates include making charges</p>
+        <p class="coin-note">* Rates are inclusive of making charges and exclusive of packing charges.</p>
       </section>
     </div>`;
   }
@@ -415,7 +415,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="silverCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
-        <p class="coin-note">* Rates include making charges</p>
+        <p class="coin-note">* Rates are inclusive of making charges and exclusive of packing charges.</p>
       </section>
     </div>`;
   }
@@ -1116,7 +1116,7 @@ async function generateRateImage(pageId) {
     ctx.fillText('KARAT RATES  (per 10g)',PAD,y+22);
     ctx.fillStyle='rgba(255,255,255,0.32)';ctx.font='13px Inter,Arial,sans-serif';
     ctx.textAlign='right';
-    ctx.fillText('Base: '+(admin.goldRates?.baseRow||'999 IMP')+' Sell',W-PAD,y+22);
+    ctx.fillText('Base: '+(admin.goldRates?.baseRow||'999 IMP')+' Sell (BEFORE GST)',W-PAD,y+22);
     ctx.textAlign='left';y+=36;
     const cols=Math.min(karats.length,4);
     const cardW=Math.floor((W-PAD*2-(cols-1)*10)/cols),cardH=96;
@@ -1185,6 +1185,9 @@ async function generateRateImage(pageId) {
     ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
   }
 
+  if(data.goldApxRow) goldProds.push({name:'BEFORE GST',ask:data.goldApxRow.sell,high:data.goldApxRow.high,low:data.goldApxRow.low});
+  if(data.silverApxRow) silvProds.push({name:'BEFORE GST PETI',ask:data.silverApxRow.sell,high:data.silverApxRow.high,low:data.silverApxRow.low});
+
   drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds);
 
@@ -1213,6 +1216,12 @@ async function generateRateImage(pageId) {
   const scPPG = admin.silverCoins?.premiumPerGram ?? 12;
   drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG);
   drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG);
+  
+  if (isCoins && (gcRows.length || scRows.length)) {
+    ctx.fillStyle='rgba(255,255,255,0.45)';ctx.font='italic 12px Inter,Arial,sans-serif';
+    ctx.fillText('* Rates are inclusive of making charges and exclusive of packing charges.',PAD+10,y+10);
+    y+=24;
+  }
 
   const fy=Math.max(y+14,H-82);
   ctx.fillStyle=GOLD;ctx.fillRect(PAD,fy,W-PAD*2,1.5);

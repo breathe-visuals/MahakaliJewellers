@@ -123,10 +123,10 @@ body {
 }
 .marquee-meta {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
   flex-shrink: 0;
   background: rgba(0, 0, 0, 0.2);
   padding: 6px 14px;
@@ -300,7 +300,7 @@ body {
 }
 .karat-price {
   font-family: 'Oswald', sans-serif;
-  font-size: 1.22rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--gold-dark);
   font-variant-numeric: tabular-nums;
@@ -492,7 +492,7 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   align-items: center;
   justify-content: center;
   padding: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-family: 'Oswald', sans-serif;
   font-weight: 700;
   min-width: 50px;
@@ -585,7 +585,7 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 }
 .coin-price {
   font-family: 'Oswald', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.15rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--gold-dark);
@@ -608,6 +608,8 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   border-top: 2px solid var(--gold);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
   padding-bottom: env(safe-area-inset-bottom);
+  padding-left: 12px;
+  padding-right: 12px;
 }
 .bnav-btn {
   flex: 1;
@@ -837,7 +839,8 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .slider-card { flex: 0 0 calc(50% - 8px); }
   .slider-dots { display: none; }
   table { font-size: 1rem; }
-  .chip-val { font-size: 0.95rem; min-width: 56px; padding: 3px 9px; }
+  .chip-val { font-size: 1.25rem; min-width: 56px; padding: 3px 9px; }
+  .coin-price { font-size: 1.25rem; }
   .rowhead { font-size: 1rem; }
   thead th { font-size: 0.85rem; }
   tbody td { font-size: 1.05rem; }
@@ -848,9 +851,9 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 /* Desktop (992+): show desktop nav, hide bottom nav + contact bar */
 @media (min-width: 992px) {
   body { padding-bottom: 0; }
-  .desktop-nav { display: block; flex: 1; }
+  .desktop-nav { display: flex; flex: 1; align-items: center; }
+  #desktop-nav-right { justify-content: flex-end; }
   .header-inner { justify-content: space-between; padding: 14px 40px; }
-  .desktop-nav-inner { justify-content: flex-end; }
   .bottom-nav  { display: none; }
   .contact-bar { display: none !important; }
   .header-logo { height: 110px; }
@@ -858,13 +861,13 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .karat-grid { grid-template-columns: repeat(7, 1fr); gap: 14px; }
   .karat-card { padding: 18px 10px; }
   .karat-label { font-size: 1.7rem; }
-  .karat-price { font-size: 1.3rem; }
+  .karat-price { font-size: 1.6rem; }
   .karat-purity { font-size: 0.72rem; }
   .karat-unit { font-size: 0.65rem; }
   .slider-card { flex: 0 0 calc(50% - 8px); }
   .slider-dots { display: none; }
   table { font-size: 1.1rem; }
-  .chip-val { font-size: 1.05rem; min-width: 62px; padding: 4px 10px; }
+  .chip-val { font-size: 1.35rem; min-width: 62px; padding: 4px 10px; }
   .rowhead { font-size: 1.1rem; }
   thead th { font-size: 0.9rem; padding: 14px 12px; }
   tbody td { font-size: 1.1rem; padding: 12px 10px; }
@@ -872,19 +875,19 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .page-title { font-size: 2rem; }
   .card-title { font-size: 1.5rem; }
   .coin-table tbody td, .coin-table .rowhead { font-size: 1.1rem; }
-  .coin-price { font-size: 1.45rem; }
+  .coin-price { font-size: 1.35rem; }
 }
 
 /* Large desktop (1200+) */
 @media (min-width: 1200px) {
   .page { width: 80%; max-width: none; }
   table { font-size: 1.2rem; }
-  .chip-val { font-size: 1.35rem; }
+  .chip-val { font-size: 1.45rem; }
   .rowhead { font-size: 1.2rem; }
   thead th { font-size: 1rem; }
   tbody td { font-size: 1.2rem; }
-  .karat-price { font-size: 1.45rem; }
-  .coin-price { font-size: 1.65rem; }
+  .karat-price { font-size: 1.8rem; }
+  .coin-price { font-size: 1.45rem; }
   .karat-label { font-size: 1.9rem; }
 }
 
@@ -892,10 +895,10 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 @media (min-width: 1400px) {
   .page { width: 75%; }
   table { font-size: 1.3rem; }
-  .chip-val { font-size: 1.5rem; }
+  .chip-val { font-size: 1.6rem; }
   .rowhead { font-size: 1.3rem; }
   .karat-price { font-size: 2rem; }
-  .coin-price { font-size: 1.8rem; }
+  .coin-price { font-size: 1.6rem; }
   .karat-label { font-size: 2rem; }
 }
 
@@ -904,19 +907,26 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .header-logo { height: 75px; }
   .karat-grid  { grid-template-columns: repeat(4, 1fr); gap: 5px; }
   .karat-label { font-size: 1.15rem; }
-  .karat-price { font-size: 1.1rem; }
+  .karat-price { font-size: 1.15rem; }
   .karat-purity { font-size: 0.55rem; }
   .karat-card  { padding: 8px 4px; }
   #karat-card-24k { grid-column: span 2; }
   #karat-card-24k .karat-price { font-size: 1.3rem; }
-  .chip-val    { font-size: 0.85rem; min-width: 0; }
+  .chip-val    { font-size: 1.05rem; min-width: 0; }
+  .coin-price  { font-size: 1.05rem; }
   thead th     { font-size: 0.68rem; padding: 7px 4px; }
   tbody td     { font-size: 0.85rem; padding: 7px 4px; }
   .rowhead     { font-size: 0.8rem; }
   .page        { padding: 12px 10px 20px; gap: 14px; }
   .section     { gap: 10px; }
-  .marquee-clock  { font-size: 0.8rem; }
+  .marquee-clock  { font-size: 0.75rem; }
   .last-updated   { font-size: 0.75rem; }
+  .ticker-inner   { font-size: 0.8rem; }
+}
+
+@media (max-width: 767px) {
+  .ticker-inner   { font-size: 0.8rem; }
+  .marquee-clock  { font-size: 0.78rem; }
 }
 
 /* Small mobile (361–480 px) */
@@ -934,7 +944,8 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   table        { font-size: 0.95rem; }
   thead th     { font-size: 0.75rem; padding: 10px 6px; }
   tbody td     { font-size: 1rem; padding: 10px 6px; }
-  .chip-val    { font-size: 0.95rem; }
+  .chip-val    { font-size: 1.15rem; }
+  .coin-price  { font-size: 1.15rem; }
   .rowhead     { font-size: 0.9rem; }
   .section-title { font-size: 1.15rem; }
   .page-title  { font-size: 1.6rem; }

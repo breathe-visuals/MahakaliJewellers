@@ -21,18 +21,16 @@
 
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
-
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=11" />
 </head>
 <body>
 
   <!-- ═══ HEADER — logo only, centered ═══ -->
   <header class="site-header" role="banner">
     <div class="header-inner">
+      <nav id="desktop-nav-left" class="desktop-nav" role="navigation" aria-label="Main navigation"></nav>
       <img id="header-logo" src="" alt="Logo" class="header-logo" />
-      <nav id="desktop-nav" class="desktop-nav" role="navigation" aria-label="Main navigation">
-        <div id="desktop-nav-inner" class="desktop-nav-inner"></div>
-      </nav>
+      <nav id="desktop-nav-right" class="desktop-nav" role="navigation"></nav>
     </div>
   </header>
 
@@ -45,8 +43,8 @@
       </div>
       <!-- Always-visible right side: time + status + last-update -->
       <div class="marquee-meta">
-        <span id="live-clock" class="marquee-clock"></span>
         <span id="status" class="status-dot" title="Connection status"></span>
+        <span id="live-clock" class="marquee-clock"></span>
       </div>
     </div>
   </div>
@@ -64,8 +62,7 @@
 
   <!-- ═══ FOOTER — built from config ═══ -->
   <footer id="site-footer" class="site-footer"></footer>
-
   <script src="/socket.io/socket.io.js"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

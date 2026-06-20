@@ -47,6 +47,7 @@ let dom = {};
   }
 
   applyTheme(CFG.site?.theme);
+  document.body.classList.add('ready'); // reveal body only after theme is applied — prevents flash
   buildUI(CFG);
   initSocket();
   if (CFG.admin?.features?.enablePWA !== false) registerSW();

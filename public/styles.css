@@ -58,6 +58,10 @@ body {
   -webkit-font-smoothing: antialiased;
   /* Space for fixed bottom nav + OS home indicator */
   padding-bottom: var(--bnav-h);
+  visibility: hidden;
+}
+body.ready {
+  visibility: visible;
 }
 
 /* ---------- HEADER ---------- */
@@ -94,7 +98,7 @@ body {
   background: var(--brand-mid);
   border-bottom: 1px solid rgba(255,255,255,0.08);
   position: sticky;
-  top: var(--header-h, 100px);
+  top: 0;
   z-index: 99;
 }
 .marquee-bar {

@@ -863,8 +863,8 @@ function shareRates() {
 
 function showCallModal() {
   const biz = CFG?.site?.business || {};
-  if (!biz.phone && !biz.phone2) return;
-  if (biz.phone && !biz.phone2) {
+  if (!biz.phone && !biz.phone2 && !biz.whatsapp) return;
+  if (biz.phone && !biz.phone2 && !biz.whatsapp) {
     window.location.href = 'tel:' + biz.phone;
     return;
   }
@@ -875,7 +875,7 @@ function showCallModal() {
   overlay.innerHTML = `
     <div class="share-modal">
       <h3 class="share-modal-title">Contact Us</h3>
-      <p class="share-modal-sub">Choose a number to call:</p>
+      <p class="share-modal-sub">Choose an option to contact us:</p>
       <div class="share-opts">
         ${biz.phone ? `
           <a href="tel:${biz.phone}" class="share-opt-btn" style="text-decoration:none;">
@@ -886,6 +886,11 @@ function showCallModal() {
           <a href="tel:${biz.phone2}" class="share-opt-btn" style="text-decoration:none;">
             <span class="share-opt-icon">${ICONS.phone}</span>
             <span>${esc(biz.phone2)}</span>
+          </a>` : ''}
+        ${biz.whatsapp ? `
+          <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}" class="share-opt-btn" style="text-decoration:none;">
+            <span class="share-opt-icon">${ICONS.whatsapp}</span>
+            <span>WhatsApp</span>
           </a>` : ''}
       </div>
       <button class="share-cancel-btn" onclick="document.querySelector('.call-overlay')?.remove()">Cancel</button>
@@ -1030,7 +1035,7 @@ async function generateRateImage(pageId) {
     ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
     ctx.fillText(title,PAD,y+22);y+=36;
     ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
-    const C={nm:PAD+10,buy:W-PAD-260,sell:W-PAD-145,high:W-PAD-55,low:W-PAD};
+    const C={nm:PAD+10,buy:PAD+360,sell:PAD+510,high:PAD+660,low:W-PAD-15};
     ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
     ctx.fillText('PRODUCT',C.nm,y+28);ctx.textAlign='right';
     ctx.fillText('BUY',C.buy,y+28);ctx.fillText('SELL',C.sell,y+28);

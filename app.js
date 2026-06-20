@@ -480,14 +480,33 @@ function buildFooter(biz, footerCfg, socials) {
 }
 
 /* ================================================================
-   SERVICE WORKER
+   SERVICE WORKER — auto-update: new SW activates & page reloads
    ================================================================ */
 function registerSW() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if (!('serviceWorker' in navigator)) return;
+
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    /* If an updated SW is found, skip waiting & reload */
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      if (!newWorker) return;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          newWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
     });
-  }
+
+    /* When the new SW has taken control, reload once */
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) { refreshing = true; window.location.reload(); }
+    });
+
+    /* Also check for updates right now (catches the case where SW
+       is already waiting from a previous navigation) */
+    reg.update().catch(() => {});
+  }).catch(() => {});
 }
 
 /* ================================================================

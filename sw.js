@@ -1,9 +1,10 @@
 /* ================================================================
-   sw.js – Jewellery Live Rates Platform  v10
-   ─ /api/config is network-first
-   ─ Navigation is network-first
-   ─ JS/CSS use Stale-While-Revalidate so normal refreshes work!
-const CACHE_NAME = 'jewellers-shell-v10';
+   sw.js – Jewellery Live Rates Platform  v11
+   Strategy: Network-First for all assets (instant updates).
+   Falls back to cache when offline.
+   ================================================================ */
+
+const CACHE_NAME = 'jewellers-shell-v11';
 
 const SHELL_ASSETS = [
   '/',
@@ -17,10 +18,9 @@ const SHELL_ASSETS = [
   '/Media/favicon.ico',
   '/Media/favicon-32x32.png',
   '/Media/favicon-16x16.png',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap',
 ];
 
-/* ── Install: pre-cache shell ── */
+/* ── Install: pre-cache shell & skip waiting immediately ── */
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
@@ -30,16 +30,25 @@ self.addEventListener('install', event => {
   );
 });
 
-/* ── Activate: purge old caches ── */
+/* ── Activate: purge old caches & claim all clients ── */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
       .then(() => self.clients.claim())
   );
 });
 
-/* ── Fetch strategy ── */
+/* ── SKIP_WAITING message from app.js ── */
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+/* ── Fetch strategy: Network-First for instant updates ── */
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
@@ -47,23 +56,7 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api/rates')) return;
   if (url.pathname.startsWith('/api/debug')) return;
 
-  /* /api/config — network-first so config changes propagate immediately */
-  if (url.pathname.startsWith('/api/config')) {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match(event.request))
-    );
-    return;
-  }
-
-  /* Navigation (HTML) — network-first, fallback to cached shell */
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
-    );
-    return;
-  }
-
-  /* All other assets (JS, CSS, Images) — Network-First for instant updates */
+  /* Always network-first: get fresh from server, cache as fallback */
   event.respondWith(
     fetch(event.request).then(networkResponse => {
       if (networkResponse && networkResponse.status === 200) {

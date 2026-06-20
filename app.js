@@ -180,6 +180,7 @@ const ICONS = {
   instagram: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
   facebook: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>`,
   globe: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+  options: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
 };
 
 const PAGE_META = {
@@ -225,13 +226,9 @@ function buildBottomNav(pages) {
     </button>`;
   }).join('');
 
-  html += `<button class="bnav-btn bnav-action" onclick="showCallModal()">
-      <span class="bnav-icon">${ICONS.phone}</span>
-      <span class="bnav-label">Call</span>
-    </button>
-    <button class="bnav-btn bnav-action" onclick="shareRates()">
-      <span class="bnav-icon">${ICONS.whatsapp}</span>
-      <span class="bnav-label">Share</span>
+  html += `<button class="bnav-btn bnav-action" onclick="showOptionsMenu()">
+      <span class="bnav-icon">${ICONS.options}</span>
+      <span class="bnav-label">Menu</span>
     </button>`;
 
   inner.innerHTML = html;
@@ -904,7 +901,29 @@ function showCallModal() {
       </div>
       <button class="share-cancel-btn" onclick="document.querySelector('.call-overlay')?.remove()">Cancel</button>
     </div>`;
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function showOptionsMenu() {
+  document.querySelector('.share-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'share-overlay call-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal">
+      <h3 class="share-modal-title">Menu</h3>
+      <p class="share-modal-sub">More options</p>
+      <div class="share-opts" style="flex-direction: column; gap: 10px;">
+        <button class="share-opt-btn" onclick="showCallModal()" style="width: 100%; justify-content: center; text-decoration: none; border: none; background: rgba(0,0,0,0.05); font-family: Inter, sans-serif; font-size: 1rem; color: var(--text);">
+          <span class="share-opt-icon">${ICONS.phone}</span>
+          <span>Contact Us</span>
+        </button>
+        <button class="share-opt-btn" onclick="shareRates()" style="width: 100%; justify-content: center; text-decoration: none; border: none; background: rgba(0,0,0,0.05); font-family: Inter, sans-serif; font-size: 1rem; color: var(--text);">
+          <span class="share-opt-icon">${ICONS.whatsapp}</span>
+          <span>Share Rates</span>
+        </button>
+      </div>
+      <button class="share-cancel-btn" onclick="document.querySelector('.call-overlay')?.remove()">Close</button>
+    </div>`;
   document.body.appendChild(overlay);
 }
 

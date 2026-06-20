@@ -608,6 +608,8 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   border-top: 2px solid var(--gold);
   box-shadow: 0 -4px 20px rgba(0,0,0,0.25);
   padding-bottom: env(safe-area-inset-bottom);
+  padding-left: 12px;
+  padding-right: 12px;
 }
 .bnav-btn {
   flex: 1;
@@ -849,9 +851,9 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 /* Desktop (992+): show desktop nav, hide bottom nav + contact bar */
 @media (min-width: 992px) {
   body { padding-bottom: 0; }
-  .desktop-nav { display: block; flex: 1; }
+  .desktop-nav { display: flex; flex: 1; align-items: center; }
+  #desktop-nav-right { justify-content: flex-end; }
   .header-inner { justify-content: space-between; padding: 14px 40px; }
-  .desktop-nav-inner { justify-content: flex-end; }
   .bottom-nav  { display: none; }
   .contact-bar { display: none !important; }
   .header-logo { height: 110px; }
@@ -917,8 +919,14 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .rowhead     { font-size: 0.8rem; }
   .page        { padding: 12px 10px 20px; gap: 14px; }
   .section     { gap: 10px; }
-  .marquee-clock  { font-size: 0.8rem; }
+  .marquee-clock  { font-size: 0.75rem; }
   .last-updated   { font-size: 0.75rem; }
+  .ticker-inner   { font-size: 0.8rem; }
+}
+
+@media (max-width: 767px) {
+  .ticker-inner   { font-size: 0.8rem; }
+  .marquee-clock  { font-size: 0.78rem; }
 }
 
 /* Small mobile (361–480 px) */

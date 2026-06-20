@@ -1,10 +1,9 @@
 /* ================================================================
-   sw.js – Jewellery Live Rates Platform  v6
+   sw.js – Jewellery Live Rates Platform  v10
    ─ /api/config is network-first
    ─ Navigation is network-first
    ─ JS/CSS use Stale-While-Revalidate so normal refreshes work!
-   ================================================================ */
-const CACHE_NAME = 'jewellers-shell-v8';
+const CACHE_NAME = 'jewellers-shell-v10';
 
 const SHELL_ASSETS = [
   '/',

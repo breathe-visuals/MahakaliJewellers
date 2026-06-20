@@ -61,7 +61,7 @@
     ]
   },
   "goldCoins": {
-    "baseRow": "APX_GOLD",
+    "baseRow": "999 IMP RTGS",
     "divisor": 10,
     "premiumPerGram": 100,
     "rows": [

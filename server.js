@@ -34,6 +34,7 @@ const APX_GOLD_GST_PCT      = adminConfig?.goldRates?.apxGstPercent  ?? 3;
 const APX_SILVER_SOURCE_ROW = adminConfig?.silverRates?.apxSourceRow || 'SILVER PETI RTGS';
 const APX_SILVER_GST_PCT    = adminConfig?.silverRates?.apxGstPercent ?? 3;
 const SILVER_COIN_ROW       = adminConfig?.silverCoins?.baseRow      || 'SILVER PETI RTGS';
+const GOLD_COIN_ROW         = adminConfig?.goldCoins?.baseRow        || 'APX_GOLD';
 
 /* ══════════════════════════════════════════════════════════════
    FEED CONFIGURATION  (unchanged from Reference)
@@ -278,7 +279,10 @@ function getGoldApx()      { return getGoldApxFull()?.sell  ?? null; }
 function getSilverApx()    { return getSilverApxFull()?.sell ?? null; }
 
 function getGoldBase()      { return getGoldApx(); }
-function getGoldCoinBase()  { return getGoldApx(); }
+function getGoldCoinBase()  { 
+  if (GOLD_COIN_ROW === 'APX_GOLD') return getGoldApx();
+  return getBaseAsk('gopnath', GOLD_COIN_ROW);
+}
 function getSilverCoinBase(){ return getBaseAsk('swayam', SILVER_COIN_ROW); }
 
 /* ══════════════════════════════════════════════════════════════
@@ -301,8 +305,8 @@ function buildPayload() {
     spotRows:   buildRows(['xauusd', 'xagusd', 'inrspot']),
     /* Config-driven base rates */
     goldBase:       goldApxVal,           /* APX W/O GST — base for karat cards */
-    goldCoinBase:   goldApxVal,           /* APX W/O GST — base for gold coin prices */
-    silverCoinBase: getSilverCoinBase(),  /* SILVER PETI RTGS — base for silver coins */
+    goldCoinBase:   getGoldCoinBase(),    /* Configurable base for gold coin prices */
+    silverCoinBase: getSilverCoinBase(),  /* Configurable base for silver coins */
     goldApxRow:     goldApxFull,          /* { sell, high, low } for APX row in gold products table */
     silverApxRow:   silverApxFull,        /* { sell, high, low } for APX row in silver products table */
   };

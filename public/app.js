@@ -791,10 +791,10 @@ function renderAll(data) {
   const admin = CFG.admin || {};
 
   renderTable(dom.goldProductsBox,   data?.goldProducts,   prev.goldProducts,   'mini');
-  renderApxTableRow('goldProductsBox',   'APX W/O GST',    data?.goldApxRow);
+  renderApxTableRow('goldProductsBox',   'BEFORE GST',    data?.goldApxRow);
 
   renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
-  renderApxTableRow('silverProductsBox', 'APX W/O SILVER', data?.silverApxRow);
+  renderApxTableRow('silverProductsBox', 'BEFORE GST PETI', data?.silverApxRow);
 
   renderTable(dom.futureBox, data?.futureRows, prev.future, 'rate');
   renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');

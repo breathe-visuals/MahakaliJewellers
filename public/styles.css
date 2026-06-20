@@ -67,23 +67,23 @@ body {
   box-shadow: 0 2px 20px rgba(0,0,0,0.25);
   padding: env(safe-area-inset-top) 0 0;
 }
-/* ── Header: logo only, centred ── */
+/* ── Header inner: mobile = centered, desktop = 3-col grid ── */
 .header-inner {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 14px 20px;
+  padding: 10px 20px;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 20px;
 }
 .header-logo {
-  height: 90px;
+  height: 86px;
   width: auto;
-  max-width: 80vw;
-  max-width: min(80vw, 320px);
+  max-width: min(75vw, 280px);
   object-fit: contain;
   display: block;
+  flex-shrink: 0;
   transition: height 0.3s ease;
 }
 
@@ -97,22 +97,23 @@ body {
 }
 .marquee-bar {
   display: flex;
-  align-items: center;
-  padding: 7px 14px;
-  gap: 10px;
-  min-height: 36px;
+  align-items: stretch;
+  min-height: 38px;
 }
 /* CSS-animated ticker — works on desktop and mobile */
 .ticker-track {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
 }
 .ticker-inner {
   display: inline-block;
   white-space: nowrap;
   animation: ticker 50s linear infinite;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   color: var(--gold);
@@ -121,6 +122,7 @@ body {
   0%   { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
+/* Live-time pill — stretches full marquee bar height */
 .marquee-meta {
   display: flex;
   flex-direction: row;
@@ -128,10 +130,9 @@ body {
   justify-content: center;
   gap: 8px;
   flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 0 14px;
+  border-left: 1px solid rgba(255,255,255,0.1);
 }
 /* Clock badge */
 .marquee-clock {
@@ -180,35 +181,72 @@ body {
 /* ---------- DESKTOP NAV ---------- */
 .desktop-nav {
   display: none;
-}
-.desktop-nav-inner {
-  display: flex;
-  gap: 0;
+  gap: 4px;
+  align-items: center;
+  padding: 0 8px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 .dnav-btn {
   background: none;
-  border: none;
+  border: 1.5px solid transparent;
   cursor: pointer;
-  padding: 16px 32px;
+  padding: 7px 14px;
   font-family: 'Inter', sans-serif;
-  font-size: 1rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: rgba(255,255,255,0.65);
   letter-spacing: 0.04em;
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-bottom: 3px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+  gap: 6px;
+  border-radius: 8px;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
-.dnav-btn:hover { color: var(--gold); }
+.dnav-btn:hover {
+  color: var(--gold);
+  background: rgba(255,255,255,0.07);
+}
 .dnav-btn.active {
   color: var(--gold);
-  border-bottom-color: var(--gold);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(217,178,95,0.4);
 }
-.dnav-icon { font-size: 1.1rem; }
+.dnav-icon { display: flex; align-items: center; flex-shrink: 0; }
+/* Call + Share action buttons */
+.dnav-action {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.85);
+}
+.dnav-action:hover {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--brand);
+  opacity: 1;
+}
+.dnav-share {
+  background: rgba(37,211,102,0.15);
+  border-color: rgba(37,211,102,0.35);
+  color: #25d366;
+}
+.dnav-share:hover {
+  background: #25d366;
+  border-color: #25d366;
+  color: #fff;
+}
+/* Call+Share live together as a pill group */
+.dnav-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 5px;
+}
 
 /* ---------- PAGE LAYOUT ---------- */
 .page {
@@ -848,34 +886,43 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .page-title { font-size: 1.8rem; }
 }
 
-/* Desktop (992+): show desktop nav, hide bottom nav + contact bar */
+/* Desktop (992+): 3-column header (nav | LOGO | nav), hide mobile elements */
 @media (min-width: 992px) {
   body { padding-bottom: 0; }
-  .desktop-nav { display: flex; flex: 1; align-items: center; }
+  /* 3-column grid: left-nav takes equal space as right-nav, logo stays centered */
+  .header-inner {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    justify-content: unset;
+    padding: 12px 32px;
+    gap: 0;
+  }
+  .desktop-nav { display: flex; align-items: center; }
+  #desktop-nav-left  { justify-content: flex-start; }
   #desktop-nav-right { justify-content: flex-end; }
-  .header-inner { justify-content: space-between; padding: 14px 40px; }
+  .header-logo { height: 100px; }
   .bottom-nav  { display: none; }
   .contact-bar { display: none !important; }
-  .header-logo { height: 110px; }
   .page { padding: 28px 40px 32px; gap: 24px; }
   .karat-grid { grid-template-columns: repeat(7, 1fr); gap: 14px; }
   .karat-card { padding: 18px 10px; }
-  .karat-label { font-size: 1.7rem; }
-  .karat-price { font-size: 1.6rem; }
+  .karat-label { font-size: 1.5rem; }
+  .karat-price { font-size: 1.3rem; }
   .karat-purity { font-size: 0.72rem; }
   .karat-unit { font-size: 0.65rem; }
   .slider-card { flex: 0 0 calc(50% - 8px); }
   .slider-dots { display: none; }
-  table { font-size: 1.1rem; }
-  .chip-val { font-size: 1.35rem; min-width: 62px; padding: 4px 10px; }
-  .rowhead { font-size: 1.1rem; }
-  thead th { font-size: 0.9rem; padding: 14px 12px; }
-  tbody td { font-size: 1.1rem; padding: 12px 10px; }
-  .section-title { font-size: 1.3rem; }
-  .page-title { font-size: 2rem; }
-  .card-title { font-size: 1.5rem; }
-  .coin-table tbody td, .coin-table .rowhead { font-size: 1.1rem; }
-  .coin-price { font-size: 1.35rem; }
+  table { font-size: 1rem; }
+  .chip-val { font-size: 1.2rem; min-width: 58px; padding: 4px 8px; }
+  .rowhead { font-size: 1rem; }
+  thead th { font-size: 0.85rem; padding: 12px 10px; }
+  tbody td { font-size: 1rem; padding: 10px 8px; }
+  .section-title { font-size: 1.2rem; }
+  .page-title { font-size: 1.9rem; }
+  .card-title { font-size: 1.4rem; }
+  .coin-table tbody td, .coin-table .rowhead { font-size: 1rem; }
+  .coin-price { font-size: 1.2rem; }
 }
 
 /* Large desktop (1200+) */
@@ -953,9 +1000,3 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
 
 /* Prevent body-level horizontal scroll */
 html, body { overflow-x: hidden; }
-
-/* Desktop-nav sticky top — keep below header + ticker bar */
-@media (min-width: 992px) {
-  .header-logo { height: 110px; }
-  .desktop-nav { top: calc(var(--header-h, 110px) + var(--marquee-h, 36px)); }
-}

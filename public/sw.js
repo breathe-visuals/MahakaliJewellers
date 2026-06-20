@@ -4,13 +4,13 @@
    Falls back to cache when offline.
    ================================================================ */
 
-const CACHE_NAME = 'jewellers-shell-v11';
+const CACHE_NAME = 'jewellers-shell-v12';
 
 const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css',
-  '/app.js',
+  '/styles.css?v=12',
+  '/app.js?v=12',
   '/manifest.webmanifest',
   '/Media/android-chrome-192x192.png',
   '/Media/android-chrome-512x512.png',

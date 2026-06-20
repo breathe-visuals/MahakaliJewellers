@@ -192,25 +192,27 @@ const PAGE_META = {
 function buildDesktopNav(pages) {
   const left = q('desktop-nav-left');
   const right = q('desktop-nav-right');
-  
+
   if (left) {
     left.innerHTML = pages.map((id, i) => {
       const m = PAGE_META[id] || { label: id, icon: '' };
       return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
         aria-pressed="${i===0}" onclick="switchPage('${id}')">
-        <span class="dnav-icon">${m.icon}</span> ${m.label}
+        <span class="dnav-icon">${m.icon}</span>${m.label}
       </button>`;
     }).join('');
   }
-  
+
   if (right) {
     right.innerHTML = `
-      <button class="dnav-btn dnav-action" onclick="showCallModal()">
-        <span class="dnav-icon">${ICONS.phone}</span> Call
-      </button>
-      <button class="dnav-btn dnav-action" onclick="shareRates()">
-        <span class="dnav-icon">${ICONS.whatsapp}</span> Share
-      </button>`;
+      <div class="dnav-actions">
+        <button class="dnav-btn dnav-action" onclick="showCallModal()">
+          <span class="dnav-icon">${ICONS.phone}</span>Call
+        </button>
+        <button class="dnav-btn dnav-action dnav-share" onclick="shareRates()">
+          <span class="dnav-icon">${ICONS.whatsapp}</span>Share
+        </button>
+      </div>`;
   }
 }
 

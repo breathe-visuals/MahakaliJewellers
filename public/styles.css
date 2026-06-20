@@ -7,11 +7,11 @@
 
 /* ---------- TOKENS ---------- */
 :root {
-  --brand:       #003336;
-  --brand-mid:   #004d52;
-  --brand-light: #006670;
-  --brand-pale:  #e6f0f0;
-  --gold:        #d9b25f;
+  --brand:       #134258;
+  --brand-mid:   #1a5472;
+  --brand-light: #206690;
+  --brand-pale:  #e8f0f4;
+  --gold:        #D9B25F;
   --gold-pale:   #fdf6e3;
   --gold-dark:   #b8922e;
   --gold-shine:  #f0cc7a;
@@ -58,10 +58,6 @@ body {
   -webkit-font-smoothing: antialiased;
   /* Space for fixed bottom nav + OS home indicator */
   padding-bottom: var(--bnav-h);
-  visibility: hidden;
-}
-body.ready {
-  visibility: visible;
 }
 
 /* ---------- HEADER ---------- */

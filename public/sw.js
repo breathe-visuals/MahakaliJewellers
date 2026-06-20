@@ -4,13 +4,13 @@
    Falls back to cache when offline.
    ================================================================ */
 
-const CACHE_NAME = 'jewellers-shell-v14';
+const CACHE_NAME = 'jewellers-shell-v15';
 
 const SHELL_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css?v=14',
-  '/app.js?v=14',
+  '/styles.css?v=15',
+  '/app.js?v=15',
   '/manifest.webmanifest',
   '/Media/android-chrome-192x192.png',
   '/Media/android-chrome-512x512.png',
@@ -52,9 +52,8 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  /* Never intercept socket or live-data API */
-  if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api/rates')) return;
-  if (url.pathname.startsWith('/api/debug')) return;
+  /* Never intercept socket, live-data API, or config — always fetch fresh */
+  if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/api/')) return;
 
   /* Always network-first: get fresh from server, cache as fallback */
   event.respondWith(

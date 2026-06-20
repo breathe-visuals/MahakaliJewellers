@@ -177,6 +177,9 @@ const ICONS = {
   phone:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.97-.97a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>`,
   share:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
   whatsapp: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
+  instagram: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
+  facebook: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>`,
+  globe: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
 };
 
 const PAGE_META = {
@@ -186,25 +189,28 @@ const PAGE_META = {
 };
 
 function buildDesktopNav(pages) {
-  const inner = q('desktop-nav-inner');
-  if (!inner) return;
-  let html = pages.map((id, i) => {
-    const m = PAGE_META[id] || { label: id, icon: '' };
-    return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
-      aria-pressed="${i===0}" onclick="switchPage('${id}')">
-      <span class="dnav-icon">${m.icon}</span> ${m.label}
-    </button>`;
-  }).join('');
+  const left = q('desktop-nav-left');
+  const right = q('desktop-nav-right');
   
-  html += `<div style="flex:1"></div>
-    <button class="dnav-btn dnav-action" onclick="showCallModal()">
-      <span class="dnav-icon">${ICONS.phone}</span> Call
-    </button>
-    <button class="dnav-btn dnav-action" onclick="shareRates()">
-      <span class="dnav-icon">${ICONS.whatsapp}</span> Share
-    </button>`;
-
-  inner.innerHTML = html;
+  if (left) {
+    left.innerHTML = pages.map((id, i) => {
+      const m = PAGE_META[id] || { label: id, icon: '' };
+      return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
+        aria-pressed="${i===0}" onclick="switchPage('${id}')">
+        <span class="dnav-icon">${m.icon}</span> ${m.label}
+      </button>`;
+    }).join('');
+  }
+  
+  if (right) {
+    right.innerHTML = `
+      <button class="dnav-btn dnav-action" onclick="showCallModal()">
+        <span class="dnav-icon">${ICONS.phone}</span> Call
+      </button>
+      <button class="dnav-btn dnav-action" onclick="shareRates()">
+        <span class="dnav-icon">${ICONS.whatsapp}</span> Share
+      </button>`;
+  }
 }
 
 function buildBottomNav(pages) {
@@ -449,10 +455,10 @@ function buildFooter(biz, footerCfg, socials) {
   let contactsHtml = '';
 
   if (footerCfg?.showPhone !== false && biz?.phone) {
-    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a></span>`;
+    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${String(biz.phone).replace(/\\s/g,'')}">${esc(biz.phone)}</a></span>`;
   }
   if (footerCfg?.showPhone !== false && biz?.phone2) {
-    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone2}">${esc(biz.phone2)}</a></span>`;
+    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${String(biz.phone2).replace(/\\s/g,'')}">${esc(biz.phone2)}</a></span>`;
   }
   if (footerCfg?.showWhatsapp !== false && biz?.whatsapp) {
     contactsHtml += `<span class="footer-contact">${ICONS.whatsapp} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a></span>`;
@@ -464,11 +470,14 @@ function buildFooter(biz, footerCfg, socials) {
     html += `<p class="footer-address">${esc(biz.address)}</p>`;
   }
 
-  const links = [];
-  if (socials?.instagram) links.push(`<a href="${esc(socials.instagram)}" target="_blank" rel="noopener">Instagram</a>`);
-  if (socials?.facebook)  links.push(`<a href="${esc(socials.facebook)}"  target="_blank" rel="noopener">Facebook</a>`);
-  if (socials?.website)   links.push(`<a href="${esc(socials.website)}"   target="_blank" rel="noopener">Website</a>`);
-  if (links.length) html += `<div class="footer-socials">${links.join('')}</div>`;
+  // Socials
+  const socialsHtml = [];
+  if (socials?.instagram) socialsHtml.push(`<a href="${esc(socials.instagram)}" target="_blank" aria-label="Instagram">${ICONS.instagram}</a>`);
+  if (socials?.facebook)  socialsHtml.push(`<a href="${esc(socials.facebook)}"  target="_blank" aria-label="Facebook">${ICONS.facebook}</a>`);
+  if (socials?.website)   socialsHtml.push(`<a href="${esc(socials.website)}"   target="_blank" aria-label="Website">${ICONS.globe}</a>`);
+  if (socialsHtml.length > 0) {
+    html += `<div class="footer-socials">${socialsHtml.join('')}</div>`;
+  }
 
   el.innerHTML = html;
 }
@@ -977,12 +986,8 @@ async function generateRateImage(pageId) {
   }
 
   if(logoImg){
-    const lh=84,lw=Math.min((logoImg.naturalWidth/logoImg.naturalHeight)*lh,210);
+    const lh=90,lw=Math.min((logoImg.naturalWidth/logoImg.naturalHeight)*lh,240);
     ctx.drawImage(logoImg,PAD,y,lw,lh);
-    ctx.fillStyle=GOLD;ctx.font='bold 34px Inter,Arial,sans-serif';
-    ctx.fillText(biz.name||'Live Rates',PAD+lw+18,y+38);
-    ctx.fillStyle='rgba(255,255,255,0.48)';ctx.font='15px Inter,Arial,sans-serif';
-    ctx.fillText(biz.tagline||'Live Bullion Rates',PAD+lw+18,y+66);
   }else{
     ctx.fillStyle=GOLD;ctx.font='bold 40px Inter,Arial,sans-serif';
     ctx.fillText(biz.name||'Live Rates',PAD,y+52);

@@ -450,22 +450,9 @@ function buildFooter(biz, footerCfg, socials) {
   const el = q('site-footer');
   if (!el) return;
 
-  const developerInfo = footerCfg?.developer ? 
-    `<div class="footer-developer">
-      ${esc(footerCfg.developer.text)}
-      ${footerCfg.developer.link ? `<a href="${esc(footerCfg.developer.link)}" target="_blank" aria-label="Breathe Visuals">↗</a>` : ''}
-    </div>` : '';
-
-  let html = `
-    <div class="footer-container">
-      <div class="footer-brand">
-        <h3 class="footer-logo-text">${esc(biz?.name || 'Jewellers')}</h3>
-        <p class="footer-tagline">${esc(biz?.tagline || 'Live Bullion Rates')}</p>
-        ${footerCfg?.showAddress !== false && biz?.address ? `<p class="footer-address">${esc(biz.address)}</p>` : ''}
-      </div>
-  `;
-
+  let html = `<p class="footer-copyright">${esc(footerCfg?.copyright || `\u00a9 ${biz?.name || 'Jewellers'}`)}</p>`;
   let contactsHtml = '';
+
   if (footerCfg?.showPhone !== false && biz?.phone) {
     contactsHtml += `<span class="footer-contact"><a href="tel:${String(biz.phone).replace(/\\s/g,'')}">${ICONS.phone} ${esc(biz.phone)}</a></span>`;
   }
@@ -477,12 +464,11 @@ function buildFooter(biz, footerCfg, socials) {
   }
 
   if (contactsHtml) {
-    html += `
-      <div class="footer-section">
-        <h4 class="footer-heading">Contact Us</h4>
-        <div class="footer-contacts-wrap">${contactsHtml}</div>
-      </div>
-    `;
+    html += `<div class="footer-contacts-wrap">${contactsHtml}</div>`;
+  }
+  
+  if (footerCfg?.showAddress !== false && biz?.address) {
+    html += `<p class="footer-address">${esc(biz.address)}</p>`;
   }
 
   // Socials
@@ -492,22 +478,16 @@ function buildFooter(biz, footerCfg, socials) {
   if (socials?.website)   socialsHtml.push(`<a href="${esc(socials.website)}"   target="_blank" aria-label="Website">${ICONS.globe}</a>`);
   
   if (socialsHtml.length > 0) {
-    html += `
-      <div class="footer-section footer-socials-section">
-        <h4 class="footer-heading">Follow Us</h4>
-        <div class="footer-socials">${socialsHtml.join('')}</div>
-      </div>
-    `;
+    html += `<div class="footer-socials">${socialsHtml.join('')}</div>`;
   }
 
-  html += `</div>`; // end footer-container
-
-  html += `
-    <div class="footer-bottom">
-      <p class="footer-copyright">${esc(footerCfg?.copyright || `\u00a9 ${biz?.name || 'Jewellers'}`)}</p>
-      ${developerInfo}
-    </div>
-  `;
+  // Developer Info
+  if (footerCfg?.developer) {
+    html += `
+      <div class="footer-developer">
+        ${footerCfg.developer.link ? `<a href="${esc(footerCfg.developer.link)}" target="_blank">${esc(footerCfg.developer.text)}</a>` : esc(footerCfg.developer.text)}
+      </div>`;
+  }
 
   el.innerHTML = html;
 }

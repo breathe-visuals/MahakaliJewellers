@@ -29,7 +29,7 @@ const siteConfig  = loadConfig('site-config.json');
 const adminConfig = loadConfig('admin-config.json');
 
 /* Config-driven APX source rows & GST % */
-const APX_GOLD_SOURCE_ROW   = adminConfig?.goldRates?.apxSourceRow   || '999 IMP GOLD';
+const APX_GOLD_SOURCE_ROW   = adminConfig?.goldRates?.apxSourceRow   || '999 IMP RTGS';
 const APX_GOLD_GST_PCT      = adminConfig?.goldRates?.apxGstPercent  ?? 3;
 const APX_SILVER_SOURCE_ROW = adminConfig?.silverRates?.apxSourceRow || 'SILVER PETI RTGS';
 const APX_SILVER_GST_PCT    = adminConfig?.silverRates?.apxGstPercent ?? 3;
@@ -244,19 +244,39 @@ function getBaseAsk(sourceKey, rowName) {
   return null;
 }
 
-/* APX W/O GST: take source-row Sell price and subtract GST % */
-function getGoldApx() {
-  const raw = getBaseAsk('gopnath', APX_GOLD_SOURCE_ROW);
-  if (raw === null) return null;
-  return Math.round(raw / (1 + APX_GOLD_GST_PCT / 100));
-}
-function getSilverApx() {
-  const raw = getBaseAsk('swayam', APX_SILVER_SOURCE_ROW);
-  if (raw === null) return null;
-  return Math.round(raw / (1 + APX_SILVER_GST_PCT / 100));
+/* Get full row data (ask, high, low) for a named row */
+function getBaseRow(sourceKey, rowName) {
+  const target = String(rowName).trim().toLowerCase();
+  /* 1 — visible products */
+  const p = state[sourceKey].products.find(
+    p => String(p?.name ?? '').trim().toLowerCase() === target
+  );
+  if (p) return { ask: toNum(p.ask), high: toNum(p.high), low: toNum(p.low) };
+  /* 2 — raw array */
+  const r = findRawByName(state[sourceKey].rawRate, rowName)
+         || findRawByName(state[sourceKey].live,    rowName);
+  if (r) return { ask: toNum(r.Ask ?? r.Sell), high: toNum(r.High), low: toNum(r.Low) };
+  return null;
 }
 
-/* goldBase & goldCoinBase are now the APX W/O GST value */
+/* APX W/O GST: remove GST % from ask/high/low of source row */
+function apxRow(rowData, gstPct) {
+  if (!rowData) return null;
+  const f = 1 + gstPct / 100;
+  return {
+    sell: rowData.ask  !== null ? Math.round(rowData.ask  / f) : null,
+    high: rowData.high !== null ? Math.round(rowData.high / f) : null,
+    low:  rowData.low  !== null ? Math.round(rowData.low  / f) : null,
+  };
+}
+
+function getGoldApxFull()   { return apxRow(getBaseRow('gopnath', APX_GOLD_SOURCE_ROW),   APX_GOLD_GST_PCT); }
+function getSilverApxFull() { return apxRow(getBaseRow('swayam',  APX_SILVER_SOURCE_ROW), APX_SILVER_GST_PCT); }
+
+/* Scalar helpers (sell value only) — used for goldBase / goldCoinBase */
+function getGoldApx()      { return getGoldApxFull()?.sell  ?? null; }
+function getSilverApx()    { return getSilverApxFull()?.sell ?? null; }
+
 function getGoldBase()      { return getGoldApx(); }
 function getGoldCoinBase()  { return getGoldApx(); }
 function getSilverCoinBase(){ return getBaseAsk('swayam', SILVER_COIN_ROW); }
@@ -265,8 +285,9 @@ function getSilverCoinBase(){ return getBaseAsk('swayam', SILVER_COIN_ROW); }
    PAYLOAD BUILDER
    ══════════════════════════════════════════════════════════════ */
 function buildPayload() {
-  const goldApxVal   = getGoldApx();
-  const silverApxVal = getSilverApx();
+  const goldApxFull   = getGoldApxFull();
+  const silverApxFull = getSilverApxFull();
+  const goldApxVal    = goldApxFull?.sell   ?? null;
   return {
     updatedAt: state.swayam.lastSeen || state.gopnath.lastSeen || null,
     connected: { gopnath: state.gopnath.connected, swayam: state.swayam.connected },
@@ -279,11 +300,11 @@ function buildPayload() {
     futureRows: buildRows(['gold', 'silver']),
     spotRows:   buildRows(['xauusd', 'xagusd', 'inrspot']),
     /* Config-driven base rates */
-    goldBase:       goldApxVal,          /* APX W/O GST — used for karat cards */
-    goldCoinBase:   goldApxVal,          /* APX W/O GST — used for gold coin prices */
-    silverCoinBase: getSilverCoinBase(), /* SILVER PETI RTGS — used for silver coin prices */
-    goldApxBase:    goldApxVal,          /* Exposed separately for the APX row in gold products */
-    silverApxBase:  silverApxVal,        /* Exposed separately for the APX row in silver products */
+    goldBase:       goldApxVal,           /* APX W/O GST — base for karat cards */
+    goldCoinBase:   goldApxVal,           /* APX W/O GST — base for gold coin prices */
+    silverCoinBase: getSilverCoinBase(),  /* SILVER PETI RTGS — base for silver coins */
+    goldApxRow:     goldApxFull,          /* { sell, high, low } for APX row in gold products table */
+    silverApxRow:   silverApxFull,        /* { sell, high, low } for APX row in silver products table */
   };
 }
 

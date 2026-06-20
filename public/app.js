@@ -269,7 +269,7 @@ function buildGoldPage(admin) {
   if (secs.karatRates !== false && gr.karats?.length) {
     const cards = gr.karats.map(k => `
       <div class="karat-card" id="karat-card-${kid(k.name)}">
-        <div class="karat-label">${esc(k.name)}${k.name === '24K' ? ' <span class="karat-wogst">W/O GST</span>' : ''}</div>
+        <div class="karat-label">${esc(k.name)}</div>
         <div class="karat-purity">${esc(k.purity || '').replace(/‰/g, '%')}</div>
         <div class="karat-price" id="kp-${kid(k.name)}">—</div>
         <div class="karat-unit">per 10g</div>
@@ -278,8 +278,8 @@ function buildGoldPage(admin) {
     h += `
     <section class="section" aria-label="Karat Rates">
       <div class="section-label">
-        <span class="section-title">Karat Rates</span>
-        <span class="section-subtitle">Base: APX W/O GST &nbsp;·&nbsp; Sell</span>
+        <span class="section-title">Karat Rates <span class="karat-wogst-badge">W/O GST</span></span>
+        <span class="section-subtitle">Base: APX (excl. GST) &nbsp;·&nbsp; Sell</span>
       </div>
       <div class="karat-grid" id="karatGrid">${cards}</div>
     </section>`;
@@ -295,10 +295,6 @@ function buildGoldPage(admin) {
       <article class="rate-card">
         <div class="table-wrap" id="goldProductsBox">
           <p class="empty-msg">Connecting to live feed…</p>
-        </div>
-        <div class="apx-row" id="goldApxRow">
-          <span class="apx-label">APX W/O GST</span>
-          <span class="apx-value" id="goldApxVal">—</span>
         </div>
       </article>
     </section>`;
@@ -361,10 +357,6 @@ function buildSilverPage(admin) {
       <article class="rate-card">
         <div class="table-wrap" id="silverProductsBox">
           <p class="empty-msg">Connecting to live feed…</p>
-        </div>
-        <div class="apx-row" id="silverApxRow">
-          <span class="apx-label">APX W/O SILVER</span>
-          <span class="apx-value" id="silverApxVal">—</span>
         </div>
       </article>
     </section>`;
@@ -638,7 +630,8 @@ function renderTable(container, rows, prevMap, type) {
   const colLabel = type === 'mini' ? 'Product' : 'Symbol';
   const table    = container.querySelector('table');
   const tbody    = table?.querySelector('tbody');
-  const trs      = tbody?.querySelectorAll('tr');
+  /* Exclude injected .apx-tr rows from the count to avoid spurious rebuilds */
+  const trs      = tbody ? Array.from(tbody.querySelectorAll('tr:not(.apx-tr)')) : [];
   let rebuild    = !table || trs.length !== rows.length;
 
   if (!rebuild) {
@@ -668,6 +661,51 @@ function updatePrevMap(rows) {
   (rows || []).forEach(r => { const k = itemKey(r); if (k) map[k] = rowToPlain(r); });
   return map;
 }
+
+/* ================================================================
+   APX TABLE ROW INJECTOR
+   Appends (or updates) an APX W/O GST row at the bottom of a
+   products table. Values go in Sell, High, Low columns; Buy = —.
+   ================================================================ */
+function renderApxTableRow(containerId, label, apxData) {
+  const container = q(containerId);
+  if (!container) return;
+  const table = container.querySelector('table');
+  if (!table) return;
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+
+  const sell = apxData?.sell ?? null;
+  const high = apxData?.high ?? null;
+  const low  = apxData?.low  ?? null;
+  const sellTxt = sell !== null ? String(sell) : '—';
+  const highTxt = high !== null ? String(high) : '—';
+  const lowTxt  = low  !== null ? String(low)  : '—';
+  const rowId   = containerId + '-apx';
+
+  let tr = document.getElementById(rowId);
+  if (!tr) {
+    tr = document.createElement('tr');
+    tr.className = 'apx-tr';
+    tr.id = rowId;
+    tr.innerHTML = `
+      <td class="rowhead apx-tr-name">${esc(label)}</td>
+      <td class="cell-bid"><span class="chip-val">—</span></td>
+      <td class="cell-ask"><span class="chip-val apx-chip" id="${rowId}-sell">${sellTxt}</span></td>
+      <td class="cell-high"><span class="chip-val always-green" id="${rowId}-high">${highTxt}</span></td>
+      <td class="cell-low"><span class="chip-val always-red" id="${rowId}-low">${lowTxt}</span></td>
+    `;
+    tbody.appendChild(tr);
+  } else {
+    const elSell = q(rowId + '-sell');
+    const elHigh = q(rowId + '-high');
+    const elLow  = q(rowId + '-low');
+    if (elSell && elSell.textContent !== sellTxt) elSell.textContent = sellTxt;
+    if (elHigh && elHigh.textContent !== highTxt) elHigh.textContent = highTxt;
+    if (elLow  && elLow.textContent  !== lowTxt)  elLow.textContent  = lowTxt;
+  }
+}
+
 
 /* ================================================================
    KARAT RENDERER
@@ -753,19 +791,10 @@ function renderAll(data) {
   const admin = CFG.admin || {};
 
   renderTable(dom.goldProductsBox,   data?.goldProducts,   prev.goldProducts,   'mini');
-  renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
+  renderApxTableRow('goldProductsBox',   'APX W/O GST',    data?.goldApxRow);
 
-  /* APX W/O GST rows */
-  const goldApxEl   = q('goldApxVal');
-  const silverApxEl = q('silverApxVal');
-  if (goldApxEl) {
-    const v = toNum(data?.goldApxBase);
-    goldApxEl.textContent = v !== null ? v.toLocaleString('en-IN') : '—';
-  }
-  if (silverApxEl) {
-    const v = toNum(data?.silverApxBase);
-    silverApxEl.textContent = v !== null ? v.toLocaleString('en-IN') : '—';
-  }
+  renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
+  renderApxTableRow('silverProductsBox', 'APX W/O SILVER', data?.silverApxRow);
 
   renderTable(dom.futureBox, data?.futureRows, prev.future, 'rate');
   renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');

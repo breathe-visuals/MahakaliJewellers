@@ -20,7 +20,7 @@
   },
   "goldRates": {
     "baseRow": "APX_GOLD",
-    "apxSourceRow": "999 IMP GOLD",
+    "apxSourceRow": "999 IMP RTGS",
     "apxGstPercent": 3,
     "karats": [
       {

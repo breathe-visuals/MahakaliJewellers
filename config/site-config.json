@@ -28,6 +28,10 @@
     "showWhatsapp": true,
     "showAddress": false,
     "showEmail": false,
-    "copyright": "© 2025 Mahakali Jewellers. All rates are indicative."
+    "copyright": "© 2025 Mahakali Jewellers. All rates are indicative.",
+    "developer": {
+      "text": "A Digital Product by Breathe Visuals",
+      "link": "https://www.instagram.com/breathe.visuals/"
+    }
   }
 }

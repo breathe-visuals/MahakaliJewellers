@@ -399,7 +399,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="goldCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
-        <p class="coin-note">* Rates are inclusive of making charges and exclusive of packing charges.</p>
+        <p class="coin-note">Rates are inclusive of making charges and exclusive of packing charges.*</p>
       </section>
     </div>`;
   }
@@ -415,7 +415,7 @@ function buildCoinsPage(admin) {
         <article class="rate-card">
           <div class="table-wrap" id="silverCoinBox"><p class="empty-msg">Connecting…</p></div>
         </article>
-        <p class="coin-note">* Rates are inclusive of making charges and exclusive of packing charges.</p>
+        <p class="coin-note">Rates are inclusive of making charges and exclusive of packing charges.*</p>
       </section>
     </div>`;
   }
@@ -1114,9 +1114,14 @@ async function generateRateImage(pageId) {
   if(karats.length&&goldBase!==null){
     ctx.fillStyle=GOLD;ctx.font='bold 18px Inter,Arial,sans-serif';
     ctx.fillText('KARAT RATES  (per 10g)',PAD,y+22);
+    // BEFORE GST badge inline
+    const karatBadgeX = PAD + ctx.measureText('KARAT RATES  (per 10g)').width + 10;
+    ctx.fillStyle='rgba(217,178,95,0.25)';imgRoundRect(ctx,karatBadgeX,y+6,92,20,5);ctx.fill();
+    ctx.fillStyle=GOLD;ctx.font='bold 11px Inter,Arial,sans-serif';
+    ctx.fillText('BEFORE GST',karatBadgeX+6,y+20);
     ctx.fillStyle='rgba(255,255,255,0.32)';ctx.font='13px Inter,Arial,sans-serif';
     ctx.textAlign='right';
-    ctx.fillText('Base: '+(admin.goldRates?.baseRow||'999 IMP')+' Sell (BEFORE GST)',W-PAD,y+22);
+    ctx.fillText('Base: APX (excl. GST) · Sell',W-PAD,y+22);
     ctx.textAlign='left';y+=36;
     const cols=Math.min(karats.length,4);
     const cardW=Math.floor((W-PAD*2-(cols-1)*10)/cols),cardH=96;
@@ -1185,11 +1190,32 @@ async function generateRateImage(pageId) {
     ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
   }
 
-  if(data.goldApxRow) goldProds.push({name:'BEFORE GST',ask:data.goldApxRow.sell,high:data.goldApxRow.high,low:data.goldApxRow.low});
-  if(data.silverApxRow) silvProds.push({name:'BEFORE GST PETI',ask:data.silverApxRow.sell,high:data.silverApxRow.high,low:data.silverApxRow.low});
+  // Draw gold products table with BEFORE GST row appended
+  function drawProdTableWithApx(title, titleCol, rows, apxLabel, apxData) {
+    if (!rows.length) return;
+    drawProdTable(title, titleCol, rows);
+    // Append the BEFORE GST / BEFORE GST PETI row at the bottom
+    if (apxData) {
+      const sell = apxData.sell ?? null;
+      const high = apxData.high ?? null;
+      const low  = apxData.low  ?? null;
+      // Highlight row
+      ctx.fillStyle = 'rgba(217,178,95,0.10)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+      ctx.strokeStyle = 'rgba(217,178,95,0.45)'; ctx.lineWidth = 1;
+      ctx.strokeRect(PAD, y, W - PAD * 2, RLINE);
+      ctx.fillStyle = GOLD; ctx.font = 'italic bold 15px Inter,Arial,sans-serif';
+      ctx.fillText(apxLabel, PAD + 10, y + 30);
+      ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+      if (sell != null) { ctx.fillStyle = GOLD;             ctx.fillText(String(sell), PAD + 510, y + 30); }
+      if (high != null) { ctx.fillStyle = '#86efac';        ctx.fillText(String(high), PAD + 660, y + 30); }
+      if (low  != null) { ctx.fillStyle = '#fca5a5';        ctx.fillText(String(low),  W - PAD,   y + 30); }
+      ctx.textAlign = 'left'; y += RLINE;
+      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 18;
+    }
+  }
 
-  drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds);
-  drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds);
+  drawProdTableWithApx('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
+  drawProdTableWithApx('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
 
   function drawCoinTable(title,titleCol,rows,baseVal,divisor,premiumPerGram){
     if(!rows.length||baseVal===null)return;
@@ -1216,11 +1242,13 @@ async function generateRateImage(pageId) {
   const scPPG = admin.silverCoins?.premiumPerGram ?? 12;
   drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG);
   drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG);
-  
+
+  // Coin disclaimer note
   if (isCoins && (gcRows.length || scRows.length)) {
-    ctx.fillStyle='rgba(255,255,255,0.45)';ctx.font='italic 12px Inter,Arial,sans-serif';
-    ctx.fillText('* Rates are inclusive of making charges and exclusive of packing charges.',PAD+10,y+10);
-    y+=24;
+    ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.font = 'italic 13px Inter,Arial,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Rates are inclusive of making charges and exclusive of packing charges.*', PAD, y + 18);
+    y += 36;
   }
 
   const fy=Math.max(y+14,H-82);

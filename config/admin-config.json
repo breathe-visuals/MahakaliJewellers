@@ -104,6 +104,11 @@
     "divisor": 1000,
     "rows": [
       {
+        "name": "SILVER COIN 999 5 GM",
+        "grams": 5,
+        "premium": 200
+      },
+      {
         "name": "SILVER COIN 999 10 GM",
         "grams": 10,
         "premium": 500

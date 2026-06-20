@@ -188,19 +188,29 @@ const PAGE_META = {
 function buildDesktopNav(pages) {
   const inner = q('desktop-nav-inner');
   if (!inner) return;
-  inner.innerHTML = pages.map((id, i) => {
+  let html = pages.map((id, i) => {
     const m = PAGE_META[id] || { label: id, icon: '' };
     return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
       aria-pressed="${i===0}" onclick="switchPage('${id}')">
       <span class="dnav-icon">${m.icon}</span> ${m.label}
     </button>`;
   }).join('');
+  
+  html += `<div style="flex:1"></div>
+    <button class="dnav-btn dnav-action" onclick="showCallModal()">
+      <span class="dnav-icon">${ICONS.phone}</span> Call
+    </button>
+    <button class="dnav-btn dnav-action" onclick="shareRates()">
+      <span class="dnav-icon">${ICONS.whatsapp}</span> Share
+    </button>`;
+
+  inner.innerHTML = html;
 }
 
 function buildBottomNav(pages) {
   const inner = q('bottom-nav-inner');
   if (!inner) return;
-  inner.innerHTML = pages.map((id, i) => {
+  let html = pages.map((id, i) => {
     const m = PAGE_META[id] || { label: id, bnav: id, icon: '' };
     return `<button class="bnav-btn${i===0?' active':''}" id="bnav-${id}"
       aria-label="${m.label}" onclick="switchPage('${id}')">
@@ -208,6 +218,17 @@ function buildBottomNav(pages) {
       <span class="bnav-label">${m.bnav}</span>
     </button>`;
   }).join('');
+
+  html += `<button class="bnav-btn bnav-action" onclick="showCallModal()">
+      <span class="bnav-icon">${ICONS.phone}</span>
+      <span class="bnav-label">Call</span>
+    </button>
+    <button class="bnav-btn bnav-action" onclick="shareRates()">
+      <span class="bnav-icon">${ICONS.whatsapp}</span>
+      <span class="bnav-label">Share</span>
+    </button>`;
+
+  inner.innerHTML = html;
 }
 
 /* ================================================================
@@ -244,7 +265,7 @@ function buildGoldPage(admin) {
     const cards = gr.karats.map(k => `
       <div class="karat-card" id="karat-card-${kid(k.name)}">
         <div class="karat-label">${esc(k.name)}</div>
-        <div class="karat-purity">${esc(k.purity || '')}</div>
+        <div class="karat-purity">${esc(k.purity || '').replace(/‰/g, '%')}</div>
         <div class="karat-price" id="kp-${kid(k.name)}">—</div>
         <div class="karat-unit">per 10g</div>
       </div>`).join('');
@@ -400,32 +421,21 @@ function buildCoinsPage(admin) {
    ================================================================ */
 function buildContactBar(biz, footerCfg) {
   const bar = q('contact-bar');
-  if (!bar) return;
-
-  const showPhone = footerCfg?.showPhone    !== false && biz?.phone;
-  const showShare = footerCfg?.showWhatsapp !== false && biz?.whatsapp;
-  if (!showPhone && !showShare) return;
-
-  let html = '';
-  if (showPhone) {
-    html += `<a href="tel:${biz.phone}" class="contact-btn phone-btn" aria-label="Call us">
-      ${ICONS.phone} Call
-    </a>`;
-    if (biz.phone2) {
-      html += `<a href="tel:${biz.phone2}" class="contact-btn phone-btn" aria-label="Call us">
-        ${ICONS.phone} Call
-      </a>`;
-    }
+  if (bar) {
+    bar.innerHTML = `
+      <button class="bnav-btn" onclick="showCallModal()">
+        <span class="bnav-icon">${ICONS.phone}</span>
+        <span class="bnav-label">Call</span>
+      </button>
+      <button class="bnav-btn" onclick="shareRates()">
+        <span class="bnav-icon">${ICONS.whatsapp}</span>
+        <span class="bnav-label">Share</span>
+      </button>`;
   }
-  if (showShare) {
-    html += `<button class="contact-btn share-btn" onclick="shareRates()" aria-label="Share live rates">
-      ${ICONS.whatsapp} Share Rates
-    </button>`;
-  }
+}
 
-  bar.innerHTML = html;
-  bar.style.display = 'flex';
-  document.documentElement.style.setProperty('--contact-h', '60px');
+function showCallModal() {
+  // Logic to show call modal
 }
 
 /* ================================================================
@@ -436,15 +446,19 @@ function buildFooter(biz, footerCfg, socials) {
   if (!el) return;
 
   let html = `<p>${esc(footerCfg?.copyright || `\u00a9 ${biz?.name || 'Jewellers'}`)}</p>`;
+  let contactsHtml = '';
 
   if (footerCfg?.showPhone !== false && biz?.phone) {
-    html += `<p class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a></p>`;
+    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone}">${esc(biz.phone)}</a></span>`;
   }
   if (footerCfg?.showPhone !== false && biz?.phone2) {
-    html += `<p class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone2}">${esc(biz.phone2)}</a></p>`;
+    contactsHtml += `<span class="footer-contact">${ICONS.phone} <a href="tel:${biz.phone2}">${esc(biz.phone2)}</a></span>`;
   }
   if (footerCfg?.showWhatsapp !== false && biz?.whatsapp) {
-    html += `<p class="footer-contact">${ICONS.whatsapp} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a></p>`;
+    contactsHtml += `<span class="footer-contact">${ICONS.whatsapp} <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${esc(biz.whatsapp)}</a></span>`;
+  }
+  if (contactsHtml) {
+    html += `<div class="footer-contacts-wrap">${contactsHtml}</div>`;
   }
   if (footerCfg?.showAddress !== false && biz?.address) {
     html += `<p class="footer-address">${esc(biz.address)}</p>`;
@@ -842,6 +856,39 @@ function shareRates() {
           </button>`).join('')}
       </div>
       <button class="share-cancel-btn" onclick="document.querySelector('.share-overlay')?.remove()">Cancel</button>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function showCallModal() {
+  const biz = CFG?.site?.business || {};
+  if (!biz.phone && !biz.phone2) return;
+  if (biz.phone && !biz.phone2) {
+    window.location.href = 'tel:' + biz.phone;
+    return;
+  }
+  
+  document.querySelector('.share-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'share-overlay call-overlay';
+  overlay.innerHTML = `
+    <div class="share-modal">
+      <h3 class="share-modal-title">Contact Us</h3>
+      <p class="share-modal-sub">Choose a number to call:</p>
+      <div class="share-opts">
+        ${biz.phone ? `
+          <a href="tel:${biz.phone}" class="share-opt-btn" style="text-decoration:none;">
+            <span class="share-opt-icon">${ICONS.phone}</span>
+            <span>${esc(biz.phone)}</span>
+          </a>` : ''}
+        ${biz.phone2 ? `
+          <a href="tel:${biz.phone2}" class="share-opt-btn" style="text-decoration:none;">
+            <span class="share-opt-icon">${ICONS.phone}</span>
+            <span>${esc(biz.phone2)}</span>
+          </a>` : ''}
+      </div>
+      <button class="share-cancel-btn" onclick="document.querySelector('.call-overlay')?.remove()">Cancel</button>
     </div>`;
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);

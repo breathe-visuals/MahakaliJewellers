@@ -1039,6 +1039,7 @@ async function doSharePage(pageId) {
 
 /* ================================================================
    GENERATE RATE IMAGE
+   Clean layout: 1080px wide, no diagonal lines, clipped name columns
    ================================================================ */
 async function generateRateImage(pageId) {
   const site  = CFG?.site  || {};
@@ -1046,224 +1047,300 @@ async function generateRateImage(pageId) {
   const biz   = site.business || {};
   const theme = site.theme   || {};
   const data  = lastRatesData || {};
-  const BRAND = theme.primaryColor || '#003336';
+  const BRAND = theme.primaryColor || '#134258';
   const GOLD  = theme.accentColor  || '#D9B25F';
-  const W=900, PAD=36, RLINE=44;
 
-  const isGold=pageId==='gold', isSilver=pageId==='silver', isCoins=pageId==='coins';
-  const karats   = isGold   ? (admin.goldRates?.karats||[]) : [];
-  const goldBase = isGold   ? toNum(data.goldBase)          : null;
-  const goldProds= isGold   ? (data.goldProducts  ||[]).slice(0,8) : [];
-  const silvProds= isSilver ? (data.silverProducts||[]).slice(0,8) : [];
-  const gcRows   = isCoins  ? (admin.goldCoins?.rows  ||[]) : [];
-  const scRows   = isCoins  ? (admin.silverCoins?.rows||[]) : [];
-  const gcBase   = isCoins  ? toNum(data.goldCoinBase)   : null;
-  const scBase   = isCoins  ? toNum(data.silverCoinBase) : null;
-  const gcDiv    = admin.goldCoins?.divisor   || 10;
-  const scDiv    = admin.silverCoins?.divisor || 1000;
+  const W     = 1080;  // wide enough for all numbers
+  const PAD   = 52;
+  const RLINE = 46;    // row height
 
-  let H=170;
-  if(karats.length&&goldBase!==null) H+=55+Math.ceil(karats.length/4)*104+20;
-  if(goldProds.length) H+=55+(goldProds.length+1)*RLINE;
-  if(silvProds.length) H+=55+(silvProds.length+1)*RLINE;
-  if(gcRows.length)    H+=55+(gcRows.length+1)*RLINE;
-  if(scRows.length)    H+=55+(scRows.length+1)*RLINE;
-  H+=96; H=Math.max(H,600);
+  const isGold   = pageId === 'gold';
+  const isSilver = pageId === 'silver';
+  const isCoins  = pageId === 'coins';
 
-  const canvas=document.createElement('canvas');
-  canvas.width=W; canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle=BRAND; ctx.fillRect(0,0,W,H);
-  ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.022)'; ctx.lineWidth=1;
-  for(let d=-H;d<W+H;d+=38){ctx.beginPath();ctx.moveTo(d,0);ctx.lineTo(d+H,H);ctx.stroke();}
-  ctx.restore();
-  let y=PAD;
+  const karats    = isGold   ? (admin.goldRates?.karats || []) : [];
+  const goldBase  = isGold   ? toNum(data.goldBase)            : null;
+  const goldProds = isGold   ? (data.goldProducts  || [])      : [];
+  const silvProds = isSilver ? (data.silverProducts || [])      : [];
+  const gcRows    = isCoins  ? (admin.goldCoins?.rows   || []) : [];
+  const scRows    = isCoins  ? (admin.silverCoins?.rows || []) : [];
+  const gcBase    = isCoins  ? toNum(data.goldCoinBase)        : null;
+  const scBase    = isCoins  ? toNum(data.silverCoinBase)      : null;
+  const gcDiv     = admin.goldCoins?.divisor   || 10;
+  const scDiv     = admin.silverCoins?.divisor || 1000;
+  const gcPPG     = admin.goldCoins?.premiumPerGram   ?? 100;
+  const scPPG     = admin.silverCoins?.premiumPerGram ?? 12;
 
-  let logoImg=null;
-  if(biz.logo){
-    try{
-      logoImg=await Promise.race([
-        new Promise((res,rej)=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=rej;i.src=biz.logo;}),
-        new Promise((_,rej)=>setTimeout(rej,3000)),
+  /* ── Accurate height calculation ── */
+  const HDR_H  = 175;
+  const SEC_H  = 36;
+  const FOOT_H = 100;
+  let H = HDR_H;
+
+  if (isGold && karats.length && goldBase !== null) {
+    H += SEC_H + Math.ceil(karats.length / 4) * 100 + 30;
+  }
+  if (goldProds.length) {
+    H += SEC_H + RLINE + goldProds.length * RLINE + (data.goldApxRow ? RLINE : 0) + 26;
+  }
+  if (silvProds.length) {
+    H += SEC_H + RLINE + silvProds.length * RLINE + (data.silverApxRow ? RLINE : 0) + 26;
+  }
+  if (gcRows.length && gcBase !== null) H += SEC_H + RLINE + gcRows.length * RLINE + 26;
+  if (scRows.length && scBase !== null) H += SEC_H + RLINE + scRows.length * RLINE + 26;
+  if (isCoins && (gcRows.length || scRows.length)) H += 46;
+  H += FOOT_H;
+  H = Math.max(H, 640);
+
+  /* ── Canvas & background — clean gradient, no diagonal lines ── */
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  const bgGrd = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrd.addColorStop(0,   BRAND);
+  bgGrd.addColorStop(0.6, '#0d2535');
+  bgGrd.addColorStop(1,   '#081820');
+  ctx.fillStyle = bgGrd;
+  ctx.fillRect(0, 0, W, H);
+
+  /* Subtle gold glow top-right */
+  const cornerGrd = ctx.createRadialGradient(W, 0, 0, W, 0, 320);
+  cornerGrd.addColorStop(0, 'rgba(217,178,95,0.09)');
+  cornerGrd.addColorStop(1, 'transparent');
+  ctx.fillStyle = cornerGrd;
+  ctx.fillRect(0, 0, W, H);
+
+  let y = PAD;
+
+  /* ── Logo ── */
+  let logoImg = null;
+  if (biz.logo) {
+    try {
+      logoImg = await Promise.race([
+        new Promise((res, rej) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload  = () => res(img);
+          img.onerror = rej;
+          img.src     = biz.logo;
+        }),
+        new Promise((_, rej) => setTimeout(rej, 3000)),
       ]);
-    }catch{}
+    } catch {}
   }
 
-  if(logoImg){
-    const lh=90,lw=Math.min((logoImg.naturalWidth/logoImg.naturalHeight)*lh,240);
-    ctx.drawImage(logoImg,PAD,y,lw,lh);
-  }else{
-    ctx.fillStyle=GOLD;ctx.font='bold 40px Inter,Arial,sans-serif';
-    ctx.fillText(biz.name||'Live Rates',PAD,y+52);
-    ctx.fillStyle='rgba(255,255,255,0.48)';ctx.font='16px Inter,Arial,sans-serif';
-    ctx.fillText(biz.tagline||'Live Bullion Rates',PAD,y+80);
+  if (logoImg) {
+    const lh = 86;
+    const lw = Math.min((logoImg.naturalWidth / logoImg.naturalHeight) * lh, 260);
+    ctx.drawImage(logoImg, PAD, y, lw, lh);
+  } else {
+    ctx.fillStyle = GOLD; ctx.font = 'bold 38px Inter,Arial,sans-serif';
+    ctx.fillText(biz.name || 'Live Rates', PAD, y + 50);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '15px Inter,Arial,sans-serif';
+    ctx.fillText(biz.tagline || 'Live Bullion Rates', PAD, y + 74);
   }
 
-  const now=new Date();
-  ctx.textAlign='right';
-  ctx.fillStyle='rgba(255,255,255,0.42)';ctx.font='14px Inter,Arial,sans-serif';
-  ctx.fillText(now.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}),W-PAD,y+32);
-  ctx.fillStyle=GOLD;ctx.font='bold 28px Inter,Arial,sans-serif';
-  ctx.fillText(now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),W-PAD,y+68);
-  ctx.textAlign='left'; y+=112;
+  /* Date + time right-aligned */
+  const now = new Date();
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(255,255,255,0.40)'; ctx.font = '13px Inter,Arial,sans-serif';
+  ctx.fillText(
+    now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+    W - PAD, y + 28
+  );
+  ctx.fillStyle = GOLD; ctx.font = 'bold 26px Inter,Arial,sans-serif';
+  ctx.fillText(
+    now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+    W - PAD, y + 62
+  );
+  ctx.textAlign = 'left';
+  y += 110;
 
-  const grd=ctx.createLinearGradient(PAD,0,W-PAD,0);
-  grd.addColorStop(0,'transparent');grd.addColorStop(0.18,GOLD);grd.addColorStop(0.82,GOLD);grd.addColorStop(1,'transparent');
-  ctx.fillStyle=grd;ctx.fillRect(PAD,y,W-PAD*2,2);y+=20;
+  /* Gold divider */
+  const divGrd = ctx.createLinearGradient(PAD, 0, W - PAD, 0);
+  divGrd.addColorStop(0, 'transparent'); divGrd.addColorStop(0.15, GOLD);
+  divGrd.addColorStop(0.85, GOLD); divGrd.addColorStop(1, 'transparent');
+  ctx.fillStyle = divGrd; ctx.fillRect(PAD, y, W - PAD * 2, 1.5); y += 22;
 
-  if(karats.length&&goldBase!==null){
-    ctx.fillStyle=GOLD;ctx.font='bold 18px Inter,Arial,sans-serif';
-    ctx.fillText('KARAT RATES  (per 10g)',PAD,y+22);
-    // BEFORE GST badge inline
-    const karatBadgeX = PAD + ctx.measureText('KARAT RATES  (per 10g)').width + 10;
-    ctx.fillStyle='rgba(217,178,95,0.25)';imgRoundRect(ctx,karatBadgeX,y+6,92,20,5);ctx.fill();
-    ctx.fillStyle=GOLD;ctx.font='bold 11px Inter,Arial,sans-serif';
-    ctx.fillText('BEFORE GST',karatBadgeX+6,y+20);
-    ctx.fillStyle='rgba(255,255,255,0.32)';ctx.font='13px Inter,Arial,sans-serif';
-    ctx.textAlign='right';
-    ctx.fillText('Base: APX (excl. GST) · Sell',W-PAD,y+22);
-    ctx.textAlign='left';y+=36;
-    const cols=Math.min(karats.length,4);
-    const cardW=Math.floor((W-PAD*2-(cols-1)*10)/cols),cardH=96;
-    karats.forEach((k,i)=>{
-      const col=i%cols,row=Math.floor(i/cols);
-      const cx=PAD+col*(cardW+10),cy=y+row*(cardH+10);
-      ctx.fillStyle='rgba(255,255,255,0.07)';imgRoundRect(ctx,cx,cy,cardW,cardH,10);ctx.fill();
-      ctx.fillStyle=GOLD;imgRoundRect(ctx,cx,cy,cardW,5,10);ctx.fill();
-      const price=Math.round(goldBase*k.multiplier);
-      ctx.textAlign='center';
-      ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.font='bold 28px Inter,Arial,sans-serif';
-      ctx.fillText(k.name, cx+cardW/2, cy+40);
-      ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font='14px Inter,Arial,sans-serif';
-      ctx.fillText(k.purity||'', cx+cardW/2, cy+58);
-      ctx.fillStyle=GOLD; ctx.font='bold 26px Inter,Arial,sans-serif';
-      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'), cx+cardW/2, cy+84);
-      ctx.textAlign='left';
+  /* ── Column x-positions for product tables (right-aligned numbers) ──
+     W=1080, PAD=52 → usable=976
+     BUY at 590, SELL at 730, HIGH at 870, LOW at 1028 (W-52)            */
+  const NM_X        = PAD + 12;
+  const BUY_X       = 590;
+  const SELL_X      = 730;
+  const HIGH_X      = 870;
+  const LOW_X       = W - PAD - 4;
+  const NAME_MAX_W  = BUY_X - NM_X - 24;   // clip boundary for names
+
+  /* ── KARAT RATES section (gold only) ── */
+  if (isGold && karats.length && goldBase !== null) {
+    ctx.fillStyle = GOLD; ctx.font = 'bold 17px Inter,Arial,sans-serif';
+    ctx.fillText('KARAT RATES  \u00b7  per 10g', PAD, y + 22);
+
+    /* BEFORE GST badge */
+    const titleW = ctx.measureText('KARAT RATES  \u00b7  per 10g').width;
+    const bx = PAD + titleW + 12, by = y + 6, bw = 100, bh = 22;
+    ctx.fillStyle = 'rgba(217,178,95,0.20)';
+    imgRoundRect(ctx, bx, by, bw, bh, 5); ctx.fill();
+    ctx.strokeStyle = 'rgba(217,178,95,0.55)'; ctx.lineWidth = 1;
+    imgRoundRect(ctx, bx, by, bw, bh, 5); ctx.stroke();
+    ctx.fillStyle = GOLD; ctx.font = 'bold 10px Inter,Arial,sans-serif';
+    ctx.fillText('BEFORE GST', bx + 7, by + 15);
+
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.font = '12px Inter,Arial,sans-serif';
+    ctx.fillText('BEFORE GST  \u00b7  Sell', W - PAD, y + 22);
+    ctx.textAlign = 'left';
+    y += 34;
+
+    const cols  = Math.min(karats.length, 4);
+    const cardW = Math.floor((W - PAD * 2 - (cols - 1) * 10) / cols);
+    const cardH = 88;
+    karats.forEach((k, i) => {
+      const col = i % cols, row = Math.floor(i / cols);
+      const cx = PAD + col * (cardW + 10), cy = y + row * (cardH + 10);
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      imgRoundRect(ctx, cx, cy, cardW, cardH, 10); ctx.fill();
+      ctx.fillStyle = GOLD; imgRoundRect(ctx, cx, cy, cardW, 4, 10); ctx.fill();
+      const price = Math.round(goldBase * k.multiplier);
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.font = 'bold 26px Inter,Arial,sans-serif';
+      ctx.fillText(k.name, cx + cardW / 2, cy + 36);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '12px Inter,Arial,sans-serif';
+      ctx.fillText(k.purity || '', cx + cardW / 2, cy + 52);
+      ctx.fillStyle = GOLD; ctx.font = 'bold 23px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9' + price.toLocaleString('en-IN'), cx + cardW / 2, cy + 76);
+      ctx.textAlign = 'left';
     });
-    y+=Math.ceil(karats.length/cols)*(cardH+10)+16;
-    ctx.fillStyle='rgba(255,255,255,0.07)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
+    y += Math.ceil(karats.length / cols) * (cardH + 10) + 14;
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 20;
   }
 
-  function drawProdTable(title,titleCol,rows){
-    if(!rows.length)return;
-    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
-    ctx.fillText(title,PAD,y+22);y+=36;
-    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
-    const C={nm:PAD+10,buy:PAD+360,sell:PAD+510,high:PAD+660,low:W-PAD-15};
-    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
-    ctx.fillText('PRODUCT',C.nm,y+28);ctx.textAlign='right';
-    ctx.fillText('BUY',C.buy,y+28);ctx.fillText('SELL',C.sell,y+28);
-    ctx.fillText('HIGH',C.high,y+28);ctx.fillText('LOW',C.low,y+28);
-    ctx.textAlign='left';y+=RLINE;
-    rows.forEach((p,i)=>{
-      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
-      ctx.fillStyle='rgba(255,255,255,0.82)'; ctx.font='16px Inter,Arial,sans-serif';
-      ctx.fillText(String(p.name||p.symbol||'').substring(0,26),C.nm,y+30);
-      ctx.textAlign='right'; ctx.font='bold 19px Inter,Arial,sans-serif';
-      if(p.bid !=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.bid), C.buy, y+30);}
-      if(p.ask !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.ask), C.sell,y+30);}
-      if(p.high!=null){ctx.fillStyle='#86efac';ctx.fillText(String(p.high),C.high,y+30);}
-      if(p.low !=null){ctx.fillStyle='#fca5a5';ctx.fillText(String(p.low), C.low, y+30);}
-      ctx.textAlign='left'; y+=RLINE;
-    });
-    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
-  }
-
-  function drawCoinTable(title,titleCol,rows,baseVal,divisor){
-    if(!rows.length||baseVal===null)return;
-    const base1u=baseVal/divisor;
-    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
-    ctx.fillText(title,PAD,y+22);y+=36;
-    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
-    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
-    ctx.fillText('PRODUCT',PAD+10,y+28);
-    ctx.textAlign='right';ctx.fillText('PRICE (\u20b9)',W-PAD,y+28);ctx.textAlign='left';y+=RLINE;
-    rows.forEach((c,i)=>{
-      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
-      const price=Math.round(base1u*c.grams+c.premium);
-      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='16px Inter,Arial,sans-serif';
-      ctx.fillText(String(c.name||'').substring(0,32),PAD+10,y+30);
-      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 24px Inter,Arial,sans-serif';
-      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),W-PAD,y+30);
-      ctx.textAlign='left';y+=RLINE;
-    });
-    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
-  }
-
-  // Draw gold products table with BEFORE GST row appended
-  function drawProdTableWithApx(title, titleCol, rows, apxLabel, apxData) {
+  /* ── Product table: 5 columns + optional APX (BEFORE GST) row ── */
+  function drawProdTable(title, titleCol, rows, apxLabel, apxData) {
     if (!rows.length) return;
-    drawProdTable(title, titleCol, rows);
-    // Append the BEFORE GST / BEFORE GST PETI row at the bottom
+    ctx.fillStyle = titleCol; ctx.font = 'bold 17px Inter,Arial,sans-serif';
+    ctx.fillText(title, PAD, y + 22); y += 36;
+
+    /* Header */
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
+    ctx.fillText('PRODUCT', NM_X, y + 30);
+    ctx.textAlign = 'right';
+    ctx.fillText('BUY',  BUY_X,  y + 30);
+    ctx.fillText('SELL', SELL_X, y + 30);
+    ctx.fillText('HIGH', HIGH_X, y + 30);
+    ctx.fillText('LOW',  LOW_X,  y + 30);
+    ctx.textAlign = 'left'; y += RLINE;
+
+    rows.forEach((p, i) => {
+      if (i % 2 === 1) {
+        ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+      }
+      /* Clip name so it never bleeds into number columns */
+      ctx.save();
+      ctx.beginPath(); ctx.rect(NM_X, y, NAME_MAX_W, RLINE); ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '15px Inter,Arial,sans-serif';
+      ctx.fillText(String(p.name || p.symbol || ''), NM_X, y + 30);
+      ctx.restore();
+
+      ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+      if (p.bid  != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid),  BUY_X,  y + 30); }
+      if (p.ask  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask),  SELL_X, y + 30); }
+      if (p.high != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.high), HIGH_X, y + 30); }
+      if (p.low  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.low),  LOW_X,  y + 30); }
+      ctx.textAlign = 'left'; y += RLINE;
+    });
+
+    /* APX (BEFORE GST / BEFORE GST PETI) row */
     if (apxData) {
       const sell = apxData.sell ?? null;
       const high = apxData.high ?? null;
       const low  = apxData.low  ?? null;
-      // Highlight row
-      ctx.fillStyle = 'rgba(217,178,95,0.10)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
-      ctx.strokeStyle = 'rgba(217,178,95,0.45)'; ctx.lineWidth = 1;
-      ctx.strokeRect(PAD, y, W - PAD * 2, RLINE);
-      ctx.fillStyle = GOLD; ctx.font = 'italic bold 15px Inter,Arial,sans-serif';
-      ctx.fillText(apxLabel, PAD + 10, y + 30);
+      ctx.fillStyle = 'rgba(217,178,95,0.12)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+      ctx.fillStyle = GOLD; ctx.fillRect(PAD, y, 3, RLINE);          // accent bar
+      ctx.fillStyle = GOLD; ctx.font = 'italic bold 14px Inter,Arial,sans-serif';
+      ctx.fillText(apxLabel, NM_X + 4, y + 30);
       ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
-      if (sell != null) { ctx.fillStyle = GOLD;             ctx.fillText(String(sell), PAD + 510, y + 30); }
-      if (high != null) { ctx.fillStyle = '#86efac';        ctx.fillText(String(high), PAD + 660, y + 30); }
-      if (low  != null) { ctx.fillStyle = '#fca5a5';        ctx.fillText(String(low),  W - PAD,   y + 30); }
+      if (sell != null) { ctx.fillStyle = GOLD;      ctx.fillText(String(sell), SELL_X, y + 30); }
+      if (high != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(high), HIGH_X, y + 30); }
+      if (low  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(low),  LOW_X,  y + 30); }
       ctx.textAlign = 'left'; y += RLINE;
-      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 18;
     }
+
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 24;
   }
 
-  drawProdTableWithApx('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
-  drawProdTableWithApx('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
+  /* ── Coin table: Name + Price (per-gram premium) ── */
+  function drawCoinTable(title, titleCol, rows, baseVal, divisor, premiumPerGram) {
+    if (!rows.length || baseVal === null) return;
+    const base1u      = baseVal / divisor;
+    const COIN_NAME_W = (W - PAD * 2) * 0.65;
 
-  function drawCoinTable(title,titleCol,rows,baseVal,divisor,premiumPerGram){
-    if(!rows.length||baseVal===null)return;
-    const base1u=baseVal/divisor;
-    ctx.fillStyle=titleCol;ctx.font='bold 17px Inter,Arial,sans-serif';
-    ctx.fillText(title,PAD,y+22);y+=36;
-    ctx.fillStyle='rgba(255,255,255,0.12)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);
-    ctx.fillStyle='rgba(255,255,255,0.55)';ctx.font='bold 12px Inter,Arial,sans-serif';
-    ctx.fillText('PRODUCT',PAD+10,y+28);
-    ctx.textAlign='right';ctx.fillText('PRICE (\u20b9)',W-PAD,y+28);ctx.textAlign='left';y+=RLINE;
-    rows.forEach((c,i)=>{
-      if(i%2===1){ctx.fillStyle='rgba(255,255,255,0.03)';ctx.fillRect(PAD,y,W-PAD*2,RLINE);}
-      const price=Math.round(base1u*c.grams + premiumPerGram*c.grams);
-      ctx.fillStyle='rgba(255,255,255,0.85)';ctx.font='16px Inter,Arial,sans-serif';
-      ctx.fillText(String(c.name||'').substring(0,32),PAD+10,y+30);
-      ctx.textAlign='right';ctx.fillStyle=GOLD;ctx.font='bold 24px Inter,Arial,sans-serif';
-      ctx.fillText('\u20b9'+price.toLocaleString('en-IN'),W-PAD,y+30);
-      ctx.textAlign='left';y+=RLINE;
+    ctx.fillStyle = titleCol; ctx.font = 'bold 17px Inter,Arial,sans-serif';
+    ctx.fillText(title, PAD, y + 22); y += 36;
+
+    /* Header */
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
+    ctx.fillText('PRODUCT', PAD + 12, y + 30);
+    ctx.textAlign = 'right'; ctx.fillText('PRICE (\u20b9)', W - PAD, y + 30);
+    ctx.textAlign = 'left'; y += RLINE;
+
+    rows.forEach((c, i) => {
+      if (i % 2 === 1) {
+        ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
+      }
+      const price = Math.round(base1u * c.grams + premiumPerGram * c.grams);
+      /* Clip name */
+      ctx.save();
+      ctx.beginPath(); ctx.rect(PAD + 12, y, COIN_NAME_W, RLINE); ctx.clip();
+      ctx.fillStyle = 'rgba(255,255,255,0.87)'; ctx.font = '15px Inter,Arial,sans-serif';
+      ctx.fillText(String(c.name || ''), PAD + 12, y + 30);
+      ctx.restore();
+      ctx.textAlign = 'right'; ctx.fillStyle = GOLD; ctx.font = 'bold 22px Inter,Arial,sans-serif';
+      ctx.fillText('\u20b9' + price.toLocaleString('en-IN'), W - PAD, y + 30);
+      ctx.textAlign = 'left'; y += RLINE;
     });
-    ctx.fillStyle='rgba(255,255,255,0.06)';ctx.fillRect(PAD,y,W-PAD*2,1);y+=18;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 24;
   }
 
-  const gcPPG = admin.goldCoins?.premiumPerGram   ?? 100;
-  const scPPG = admin.silverCoins?.premiumPerGram ?? 12;
+  /* ── Draw content ── */
+  drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
+  drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
   drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG);
   drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG);
 
-  // Coin disclaimer note
+  /* Coin note */
   if (isCoins && (gcRows.length || scRows.length)) {
-    ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.font = 'italic 13px Inter,Arial,sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Rates are inclusive of making charges and exclusive of packing charges.*', PAD, y + 18);
-    y += 36;
+    ctx.fillStyle = 'rgba(255,255,255,0.40)'; ctx.font = 'italic 13px Inter,Arial,sans-serif';
+    ctx.fillText(
+      'Rates are inclusive of making charges and exclusive of packing charges.*',
+      PAD, y + 22
+    );
+    y += 42;
   }
 
-  const fy=Math.max(y+14,H-82);
-  ctx.fillStyle=GOLD;ctx.fillRect(PAD,fy,W-PAD*2,1.5);
-  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.font='14px Inter,Arial,sans-serif';
-  ctx.textAlign='center';
-  ctx.fillText('Rates are for reference only. Contact office for booking.',W/2,fy+26);
-  if(biz.phone || biz.phone2 || biz.whatsapp){
-    ctx.fillStyle=GOLD;ctx.font='bold 20px Inter,Arial,sans-serif';
-    ctx.fillText(`${biz.phone || ''}  ${biz.phone2 ? ' / '+biz.phone2 : ''}  ${biz.whatsapp ? ' \u2022 '+biz.whatsapp : ''}`,W/2,fy+54);
+  /* ── Footer ── */
+  const fy = Math.max(y + 10, H - FOOT_H);
+  ctx.fillStyle = divGrd; ctx.fillRect(PAD, fy, W - PAD * 2, 1.5);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '14px Inter,Arial,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Rates are for reference only. Contact office for booking.', W / 2, fy + 28);
+  if (biz.phone || biz.phone2 || biz.whatsapp) {
+    ctx.fillStyle = GOLD; ctx.font = 'bold 19px Inter,Arial,sans-serif';
+    const phones = [biz.phone || '', biz.phone2 ? '/ ' + biz.phone2 : '', biz.whatsapp ? '\u2022 ' + biz.whatsapp : '']
+      .filter(Boolean).join('   ');
+    ctx.fillText(phones, W / 2, fy + 56);
   }
-  ctx.fillStyle='rgba(255,255,255,0.17)';ctx.font='12px Inter,Arial,sans-serif';
-  ctx.textAlign='right';ctx.fillText('Generated by Live Rates Platform',W-PAD,H-10);ctx.textAlign='left';
+  ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.font = '11px Inter,Arial,sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Generated by Live Rates Platform', W - PAD, H - 10);
+  ctx.textAlign = 'left';
 
-  return new Promise(resolve=>canvas.toBlob(resolve,'image/png',0.95));
+  return new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
 }
 
 

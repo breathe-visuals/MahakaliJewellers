@@ -279,7 +279,7 @@ function buildGoldPage(admin) {
     <section class="section" aria-label="Karat Rates">
       <div class="section-label">
         <span class="section-title">Karat Rates <span class="karat-wogst-badge">BEFORE GST</span></span>
-        <span class="section-subtitle">Base: APX (excl. GST) &nbsp;·&nbsp; Sell</span>
+        <span class="section-subtitle">Base: BEFORE GST &nbsp;·&nbsp; Sell</span>
       </div>
       <div class="karat-grid" id="karatGrid">${cards}</div>
     </section>`;
@@ -1190,7 +1190,7 @@ async function generateRateImage(pageId) {
 
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.font = '12px Inter,Arial,sans-serif';
-    ctx.fillText('BEFORE GST  \u00b7  Sell', W - PAD, y + 22);
+    ctx.fillText('Base: BEFORE GST  \u00b7  Sell', W - PAD, y + 22);
     ctx.textAlign = 'left';
     y += 34;
 

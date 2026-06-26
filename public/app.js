@@ -389,11 +389,13 @@ function buildCoinsPage(admin) {
   </div>`;
 
   if (hasGold) {
+    const gPct = gc.premiumPercent ?? 0;
     h += `
     <div class="coin-panel" id="panel-goldcoin" role="tabpanel" aria-labelledby="tab-goldcoin">
       <section class="section" aria-label="Gold Coin Rates">
         <div class="section-label">
           <span class="section-title">Gold Coin 999</span>
+          <span class="coin-premium-badge" id="gold-premium-pct-badge">${gPct > 0 ? `+${gPct}% premium` : 'No premium'}</span>
           <span class="live-pill"><span class="live-dot"></span>Live</span>
         </div>
         <article class="rate-card">
@@ -405,11 +407,13 @@ function buildCoinsPage(admin) {
   }
 
   if (hasSilver) {
+    const sPct = sc.premiumPercent ?? 0;
     h += `
     <div class="coin-panel${hasGold ? ' hidden' : ''}" id="panel-silvercoin" role="tabpanel" aria-labelledby="tab-silvercoin">
       <section class="section" aria-label="Silver Coin Rates">
         <div class="section-label">
           <span class="section-title">Silver Coin 999</span>
+          <span class="coin-premium-badge" id="silver-premium-pct-badge">${sPct > 0 ? `+${sPct}% premium` : 'No premium'}</span>
           <span class="live-pill"><span class="live-dot"></span>Live</span>
         </div>
         <article class="rate-card">
@@ -736,19 +740,22 @@ function renderKaratRates(goldBase) {
 /* ================================================================
    COIN TABLE RENDERER  (per-gram premium)
    ================================================================ */
-function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGram, prevKey) {
+function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGram, premiumPercent, prevKey) {
   const container = q(containerId);
   if (!container || !configRows?.length) return;
 
-  const baseRaw = toNum(baseVal);
-  const base1u  = baseRaw !== null ? baseRaw / divisor : null;
+  const baseRaw   = toNum(baseVal);
+  const base1u    = baseRaw !== null ? baseRaw / divisor : null;
+  const pctFactor = 1 + (premiumPercent || 0) / 100;
 
   const table = container.querySelector('.coin-table');
   const tbody = table?.querySelector('tbody');
 
   if (!table || !tbody) {
     const rows = configRows.map((c, i) => {
-      const price = base1u !== null ? Math.round(base1u * c.grams + premiumPerGram * c.grams) : null;
+      const price = base1u !== null
+        ? Math.round((base1u * c.grams + premiumPerGram * c.grams) * pctFactor)
+        : null;
       return `<tr data-coin="${esc(c.name)}">
         <td class="rowhead">${esc(c.name)}</td>
         <td><span class="coin-price" id="${containerId}-r${i}">${price !== null ? price.toLocaleString('en-IN') : '—'}</span></td>
@@ -765,10 +772,14 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGr
       const el = q(`${containerId}-r${i}`);
       if (!el) return;
 
-      const price    = base1u !== null ? Math.round(base1u * c.grams + premiumPerGram * c.grams) : null;
+      const price    = base1u !== null
+        ? Math.round((base1u * c.grams + premiumPerGram * c.grams) * pctFactor)
+        : null;
       const prevBase = prev[prevKey];
       const prevU    = prevBase !== null ? prevBase / divisor : null;
-      const prevP    = prevU   !== null ? Math.round(prevU * c.grams + premiumPerGram * c.grams) : null;
+      const prevP    = prevU   !== null
+        ? Math.round((prevU * c.grams + premiumPerGram * c.grams) * pctFactor)
+        : null;
 
       const text = price !== null ? price.toLocaleString('en-IN') : '—';
       if (el.textContent !== text) el.textContent = text;
@@ -803,10 +814,18 @@ function renderAll(data) {
 
   const goldDiv   = admin.goldCoins?.divisor   || 10;
   const silverDiv = admin.silverCoins?.divisor || 1000;
-  const goldPremiumPerGram   = admin.goldCoins?.premiumPerGram   ?? 100;
-  const silverPremiumPerGram = admin.silverCoins?.premiumPerGram ?? 12;
-  renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   goldPremiumPerGram,   'goldCoinBase');
-  renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, silverPremiumPerGram, 'silverCoinBase');
+  const goldPremiumPerGram    = admin.goldCoins?.premiumPerGram    ?? 100;
+  const silverPremiumPerGram  = admin.silverCoins?.premiumPerGram  ?? 12;
+  const goldPremiumPercent    = admin.goldCoins?.premiumPercent    ?? 0;
+  const silverPremiumPercent  = admin.silverCoins?.premiumPercent  ?? 0;
+  renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   goldPremiumPerGram,   goldPremiumPercent,   'goldCoinBase');
+  renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, silverPremiumPerGram, silverPremiumPercent, 'silverCoinBase');
+
+  /* Update premium-percent badges if values have changed */
+  const gpBadge = q('gold-premium-pct-badge');
+  if (gpBadge) gpBadge.textContent = goldPremiumPercent > 0 ? `+${goldPremiumPercent}% premium` : 'No premium';
+  const spBadge = q('silver-premium-pct-badge');
+  if (spBadge) spBadge.textContent = silverPremiumPercent > 0 ? `+${silverPremiumPercent}% premium` : 'No premium';
 
   prev.goldProducts   = updatePrevMap(data?.goldProducts);
   prev.silverProducts = updatePrevMap(data?.silverProducts);

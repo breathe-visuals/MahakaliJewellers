@@ -63,7 +63,8 @@
   "goldCoins": {
     "baseRow": "999 IMP RTGS",
     "divisor": 10,
-    "premiumPerGram": 100,
+    "premiumPerGram": 0,
+    "premiumPercent": 1,
     "rows": [
       {
         "name": "GOLD COIN 999 1 GM",
@@ -99,6 +100,7 @@
     "baseRow": "SILVER PETI RTGS",
     "divisor": 1000,
     "premiumPerGram": 12,
+    "premiumPercent": 0,
     "rows": [
       {
         "name": "SILVER COIN 999 5 GM",

@@ -25,37 +25,37 @@
     "karats": [
       {
         "name": "24K",
-        "purity": "999‰",
+        "purity": "99.9%",
         "multiplier": 1.0
       },
       {
         "name": "22K",
-        "purity": "920‰",
+        "purity": "92.0%",
         "multiplier": 0.9200
       },
       {
         "name": "21K",
-        "purity": "880‰",
+        "purity": "88.0%",
         "multiplier": 0.8800
       },
       {
         "name": "20K",
-        "purity": "840‰",
+        "purity": "84.0%",
         "multiplier": 0.8400
       },
       {
         "name": "18K",
-        "purity": "760‰",
+        "purity": "76.0%",
         "multiplier": 0.7600
       },
       {
         "name": "14K",
-        "purity": "583‰",
+        "purity": "58.3%",
         "multiplier": 0.5833
       },
       {
         "name": "9K",
-        "purity": "375‰",
+        "purity": "37.5%",
         "multiplier": 0.375
       }
     ]

@@ -270,7 +270,7 @@ function buildGoldPage(admin) {
     const cards = gr.karats.map(k => `
       <div class="karat-card" id="karat-card-${kid(k.name)}">
         <div class="karat-label">${esc(k.name)}</div>
-        <div class="karat-purity">${esc(k.purity || '').replace(/‰/g, '%')}</div>
+        <div class="karat-purity">${esc(k.purity || '')}</div>
         <div class="karat-price" id="kp-${kid(k.name)}">—</div>
         <div class="karat-unit">per 10g</div>
       </div>`).join('');

@@ -449,8 +449,9 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--gold) transparent;
   border-radius: 0 0 var(--radius) var(--radius);
+  width: 100%;
 }
-table { min-width: 320px; }
+table { min-width: 360px; }
 
 .slider-track {
   display: flex;
@@ -476,7 +477,7 @@ table { min-width: 320px; }
 }
 
 /* ---------- TABLES ---------- */
-.table-wrap { width: 100%; overflow: hidden; }
+.table-wrap { width: 100%; overflow-x: auto; }
 
 table {
   width: 100%;
@@ -486,11 +487,13 @@ table {
   font-variant-numeric: tabular-nums;
 }
 
-th:nth-child(1), td:nth-child(1) { width: 30%; }
-th:nth-child(2), td:nth-child(2) { width: 17%; }
-th:nth-child(3), td:nth-child(3) { width: 17%; }
-th:nth-child(4), td:nth-child(4) { width: 18%; }
-th:nth-child(5), td:nth-child(5) { width: 18%; }
+th:nth-child(1), td:nth-child(1) { width: 34%; }
+th:nth-child(2), td:nth-child(2) { width: 16%; text-align: right; }
+th:nth-child(3), td:nth-child(3) { width: 16%; text-align: right; }
+th:nth-child(4), td:nth-child(4) { width: 17%; text-align: right; }
+th:nth-child(5), td:nth-child(5) { width: 17%; text-align: right; }
+thead th:nth-child(2), thead th:nth-child(3),
+thead th:nth-child(4), thead th:nth-child(5) { text-align: right; padding-right: 10px; }
 
 thead th {
   padding: 12px 10px;
@@ -506,12 +509,14 @@ thead th {
 }
 
 tbody td {
-  padding: 11px 8px;
+  padding: 11px 8px 11px 4px;
   border-bottom: 1px solid rgba(217,178,95,0.15);
   vertical-align: middle;
   white-space: nowrap;
   font-weight: 700;
   font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(0,51,54,0.035); }
@@ -1007,11 +1012,11 @@ tbody tr:hover { background: rgba(0,51,54,0.035); }
   .slider-card { flex: 0 0 calc(50% - 8px); }
   .slider-dots { display: none; }
   table { font-size: 0.9rem; }
-  .chip-val { font-size: 1.1rem; min-width: 50px; padding: 3px 8px; }
-  .coin-price { font-size: 1.1rem; }
-  .rowhead { font-size: 0.9rem; }
-  thead th { font-size: 0.8rem; }
-  tbody td { font-size: 0.95rem; }
+  .chip-val { font-size: 1rem; min-width: 44px; padding: 2px 4px; }
+  .coin-price { font-size: 1.05rem; }
+  .rowhead { font-size: 0.88rem; }
+  thead th { font-size: 0.78rem; padding: 10px 6px; }
+  tbody td { font-size: 0.9rem; padding: 9px 6px; }
   .section-title { font-size: 1.1rem; }
   .page-title { font-size: 1.6rem; }
 }

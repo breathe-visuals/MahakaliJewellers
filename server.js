@@ -260,14 +260,14 @@ function getBaseRow(sourceKey, rowName) {
   return null;
 }
 
-/* APX W/O GST: remove GST % from ask/high/low of source row */
+/* BEFORE GST: direct -gstPct% deduction from ask/high/low of source row */
 function apxRow(rowData, gstPct) {
   if (!rowData) return null;
-  const f = 1 + gstPct / 100;
+  const f = 1 - gstPct / 100;   /* e.g. 3% → multiply by 0.97 */
   return {
-    sell: rowData.ask  !== null ? Math.round(rowData.ask  / f) : null,
-    high: rowData.high !== null ? Math.round(rowData.high / f) : null,
-    low:  rowData.low  !== null ? Math.round(rowData.low  / f) : null,
+    sell: rowData.ask  !== null ? Math.round(rowData.ask  * f) : null,
+    high: rowData.high !== null ? Math.round(rowData.high * f) : null,
+    low:  rowData.low  !== null ? Math.round(rowData.low  * f) : null,
   };
 }
 

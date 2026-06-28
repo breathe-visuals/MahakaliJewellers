@@ -1078,7 +1078,7 @@ async function generateRateImage(pageId) {
 
   const gcRows    = isCoins  ? (admin.goldCoins?.rows   || []) : [];
   const scRows    = isCoins  ? (admin.silverCoins?.rows || []) : [];
-  const gcBase    = isCoins  ? toNum(data.goldCoinBase)        : null;
+  const gcBase    = isCoins  ? (toNum(data.goldCoinBase) ?? toNum(data.goldBase))  : null;
   const scBase    = isCoins  ? toNum(data.silverCoinBase)      : null;
   const gcDiv     = admin.goldCoins?.divisor   || 10;
   const scDiv     = admin.silverCoins?.divisor || 1000;
@@ -1266,10 +1266,11 @@ async function generateRateImage(pageId) {
       ctx.restore();
 
       ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
-      if (p.bid  != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid),  BUY_X,  y + 30); }
-      if (p.ask  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask),  SELL_X, y + 30); }
-      if (p.high != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.high), HIGH_X, y + 30); }
-      if (p.low  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.low),  LOW_X,  y + 30); }
+      const dash = (v) => v != null ? String(v) : '\u2014';
+      ctx.fillStyle = p.bid  != null ? '#86efac' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.bid),  BUY_X,  y + 30);
+      ctx.fillStyle = p.ask  != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.ask),  SELL_X, y + 30);
+      ctx.fillStyle = p.high != null ? '#86efac' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.high), HIGH_X, y + 30);
+      ctx.fillStyle = p.low  != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.low),  LOW_X,  y + 30);
       ctx.textAlign = 'left'; y += RLINE;
     });
 
@@ -1333,60 +1334,70 @@ async function generateRateImage(pageId) {
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
 
   if (futureRows.length || spotRows.length) {
+    /* Each half panel: PAD to W/2-10 = left, W/2+10 to W-PAD = right
+       Within each half: name takes ~55% of half-width, BUY takes next 22%, SELL takes last 23%
+       Half width = (W - PAD*2)/2 - 10 = (1080-104)/2 - 10 = 478px
+       Name clip:  ~260px   BUY_right: half_right - 120   SELL_right: half_right - 10  */
+    const L_LEFT   = PAD;
+    const L_RIGHT  = Math.floor(W / 2) - 10;  // 530
+    const L_W      = L_RIGHT - L_LEFT;          // 478
+    const R_LEFT   = Math.floor(W / 2) + 10;  // 550
+    const R_RIGHT  = W - PAD;                   // 1028
+    const R_W      = R_RIGHT - R_LEFT;          // 478
+
+    const L_BUY_X  = L_RIGHT - 120;
+    const L_SELL_X = L_RIGHT - 10;
+    const L_NAME_W = L_BUY_X - L_LEFT - 20;
+    const R_BUY_X  = R_RIGHT - 120;
+    const R_SELL_X = R_RIGHT - 10;
+    const R_NAME_W = R_BUY_X - R_LEFT - 20;
+
     const maxRows = Math.max(futureRows.length, spotRows.length);
-    const L_PAD = PAD, L_W = (W - PAD * 2) / 2 - 12;
-    const R_PAD = W / 2 + 12, R_W = L_W;
 
     if (futureRows.length) {
       ctx.fillStyle = GOLD; ctx.font = 'bold 17px Inter,Arial,sans-serif';
-      ctx.fillText('MARKET RATES (FUTURE)', L_PAD, y + 22);
+      ctx.fillText('MARKET RATES (FUTURE)', L_LEFT, y + 22);
     }
     if (spotRows.length) {
       ctx.fillStyle = GOLD; ctx.font = 'bold 17px Inter,Arial,sans-serif';
-      ctx.fillText('MARKET RATES (SPOT)', R_PAD, y + 22);
+      ctx.fillText('MARKET RATES (SPOT)', R_LEFT, y + 22);
     }
     y += 36;
 
-    /* Headers */
     ctx.fillStyle = 'rgba(255,255,255,0.14)'; 
-    if (futureRows.length) ctx.fillRect(L_PAD, y, L_W, RLINE);
-    if (spotRows.length)   ctx.fillRect(R_PAD, y, R_W, RLINE);
+    if (futureRows.length) ctx.fillRect(L_LEFT, y, L_W, RLINE);
+    if (spotRows.length)   ctx.fillRect(R_LEFT, y, R_W, RLINE);
 
     ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
-    const L_BUY_X = L_PAD + L_W - 80, L_SELL_X = L_PAD + L_W - 12;
-    const R_BUY_X = R_PAD + R_W - 80, R_SELL_X = R_PAD + R_W - 12;
 
     if (futureRows.length) {
-      ctx.fillText('PRODUCT', L_PAD + 12, y + 30);
-      ctx.textAlign = 'right';
-      ctx.fillText('BUY',  L_BUY_X,  y + 30);
-      ctx.fillText('SELL', L_SELL_X, y + 30);
-      ctx.textAlign = 'left';
+      ctx.textAlign = 'left';  ctx.fillText('PRODUCT', L_LEFT + 12, y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('BUY',  L_BUY_X,  y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('SELL', L_SELL_X, y + 30);
     }
     if (spotRows.length) {
-      ctx.fillText('PRODUCT', R_PAD + 12, y + 30);
-      ctx.textAlign = 'right';
-      ctx.fillText('BUY',  R_BUY_X,  y + 30);
-      ctx.fillText('SELL', R_SELL_X, y + 30);
-      ctx.textAlign = 'left';
+      ctx.textAlign = 'left';  ctx.fillText('PRODUCT', R_LEFT + 12, y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('BUY',  R_BUY_X,  y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('SELL', R_SELL_X, y + 30);
     }
+    ctx.textAlign = 'left';
     y += RLINE;
 
     for (let i = 0; i < maxRows; i++) {
       if (i % 2 === 1) {
         ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        if (i < futureRows.length) ctx.fillRect(L_PAD, y, L_W, RLINE);
-        if (i < spotRows.length)   ctx.fillRect(R_PAD, y, R_W, RLINE);
+        if (i < futureRows.length) ctx.fillRect(L_LEFT, y, L_W, RLINE);
+        if (i < spotRows.length)   ctx.fillRect(R_LEFT, y, R_W, RLINE);
       }
 
       if (i < futureRows.length) {
         const p = futureRows[i];
-        ctx.save(); ctx.beginPath(); ctx.rect(L_PAD + 12, y, L_W - 140, RLINE); ctx.clip();
+        ctx.save(); ctx.beginPath(); ctx.rect(L_LEFT + 12, y, L_NAME_W, RLINE); ctx.clip();
         ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '15px Inter,Arial,sans-serif';
-        ctx.fillText(String(p.name || p.symbol || ''), L_PAD + 12, y + 30);
+        ctx.fillText(String(p.name || p.symbol || ''), L_LEFT + 12, y + 30);
         ctx.restore();
 
-        ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+        ctx.textAlign = 'right'; ctx.font = 'bold 17px Inter,Arial,sans-serif';
         if (p.bid != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid), L_BUY_X, y + 30); }
         if (p.ask != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask), L_SELL_X, y + 30); }
         ctx.textAlign = 'left';
@@ -1394,12 +1405,12 @@ async function generateRateImage(pageId) {
 
       if (i < spotRows.length) {
         const p = spotRows[i];
-        ctx.save(); ctx.beginPath(); ctx.rect(R_PAD + 12, y, R_W - 140, RLINE); ctx.clip();
+        ctx.save(); ctx.beginPath(); ctx.rect(R_LEFT + 12, y, R_NAME_W, RLINE); ctx.clip();
         ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '15px Inter,Arial,sans-serif';
-        ctx.fillText(String(p.name || p.symbol || ''), R_PAD + 12, y + 30);
+        ctx.fillText(String(p.name || p.symbol || ''), R_LEFT + 12, y + 30);
         ctx.restore();
 
-        ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+        ctx.textAlign = 'right'; ctx.font = 'bold 17px Inter,Arial,sans-serif';
         if (p.bid != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid), R_BUY_X, y + 30); }
         if (p.ask != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask), R_SELL_X, y + 30); }
         ctx.textAlign = 'left';

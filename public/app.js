@@ -1073,8 +1073,8 @@ async function generateRateImage(pageId) {
   const goldBase  = isGold   ? toNum(data.goldBase)            : null;
   const goldProds = isGold   ? (data.goldProducts  || [])      : [];
   const silvProds = isSilver ? (data.silverProducts || [])      : [];
-  const futureRows= (isGold || isSilver) ? (data.futureRows || []) : [];
-  const spotRows  = (isGold || isSilver) ? (data.spotRows   || []) : [];
+  const futureRows= isGold ? (data.futureRows || []) : [];
+  const spotRows  = isGold ? (data.spotRows   || []) : [];
 
   const gcRows    = isCoins  ? (admin.goldCoins?.rows   || []) : [];
   const scRows    = isCoins  ? (admin.silverCoins?.rows || []) : [];
@@ -1102,8 +1102,9 @@ async function generateRateImage(pageId) {
   if (silvProds.length) {
     H += SEC_H + RLINE + silvProds.length * RLINE + (data.silverApxRow ? RLINE : 0) + 26;
   }
-  if (futureRows.length) H += SEC_H + RLINE + futureRows.length * RLINE + 26;
-  if (spotRows.length)   H += SEC_H + RLINE + spotRows.length * RLINE + 26;
+  if (futureRows.length || spotRows.length) {
+    H += SEC_H + RLINE + Math.max(futureRows.length, spotRows.length) * RLINE + 26;
+  }
   
   if (gcRows.length && gcBase !== null) H += SEC_H + RLINE + gcRows.length * RLINE + 26;
   if (scRows.length && scBase !== null) H += SEC_H + RLINE + scRows.length * RLINE + 26;
@@ -1330,8 +1331,84 @@ async function generateRateImage(pageId) {
   /* ── Draw content ── */
   drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
-  drawProdTable('MARKET RATES (FUTURE)', GOLD, futureRows, null, null);
-  drawProdTable('MARKET RATES (SPOT)', GOLD, spotRows, null, null);
+
+  if (futureRows.length || spotRows.length) {
+    const maxRows = Math.max(futureRows.length, spotRows.length);
+    const L_PAD = PAD, L_W = (W - PAD * 2) / 2 - 12;
+    const R_PAD = W / 2 + 12, R_W = L_W;
+
+    if (futureRows.length) {
+      ctx.fillStyle = GOLD; ctx.font = 'bold 17px Inter,Arial,sans-serif';
+      ctx.fillText('MARKET RATES (FUTURE)', L_PAD, y + 22);
+    }
+    if (spotRows.length) {
+      ctx.fillStyle = GOLD; ctx.font = 'bold 17px Inter,Arial,sans-serif';
+      ctx.fillText('MARKET RATES (SPOT)', R_PAD, y + 22);
+    }
+    y += 36;
+
+    /* Headers */
+    ctx.fillStyle = 'rgba(255,255,255,0.14)'; 
+    if (futureRows.length) ctx.fillRect(L_PAD, y, L_W, RLINE);
+    if (spotRows.length)   ctx.fillRect(R_PAD, y, R_W, RLINE);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
+    const L_BUY_X = L_PAD + L_W - 80, L_SELL_X = L_PAD + L_W - 12;
+    const R_BUY_X = R_PAD + R_W - 80, R_SELL_X = R_PAD + R_W - 12;
+
+    if (futureRows.length) {
+      ctx.fillText('PRODUCT', L_PAD + 12, y + 30);
+      ctx.textAlign = 'right';
+      ctx.fillText('BUY',  L_BUY_X,  y + 30);
+      ctx.fillText('SELL', L_SELL_X, y + 30);
+      ctx.textAlign = 'left';
+    }
+    if (spotRows.length) {
+      ctx.fillText('PRODUCT', R_PAD + 12, y + 30);
+      ctx.textAlign = 'right';
+      ctx.fillText('BUY',  R_BUY_X,  y + 30);
+      ctx.fillText('SELL', R_SELL_X, y + 30);
+      ctx.textAlign = 'left';
+    }
+    y += RLINE;
+
+    for (let i = 0; i < maxRows; i++) {
+      if (i % 2 === 1) {
+        ctx.fillStyle = 'rgba(255,255,255,0.03)';
+        if (i < futureRows.length) ctx.fillRect(L_PAD, y, L_W, RLINE);
+        if (i < spotRows.length)   ctx.fillRect(R_PAD, y, R_W, RLINE);
+      }
+
+      if (i < futureRows.length) {
+        const p = futureRows[i];
+        ctx.save(); ctx.beginPath(); ctx.rect(L_PAD + 12, y, L_W - 140, RLINE); ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '15px Inter,Arial,sans-serif';
+        ctx.fillText(String(p.name || p.symbol || ''), L_PAD + 12, y + 30);
+        ctx.restore();
+
+        ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+        if (p.bid != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid), L_BUY_X, y + 30); }
+        if (p.ask != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask), L_SELL_X, y + 30); }
+        ctx.textAlign = 'left';
+      }
+
+      if (i < spotRows.length) {
+        const p = spotRows[i];
+        ctx.save(); ctx.beginPath(); ctx.rect(R_PAD + 12, y, R_W - 140, RLINE); ctx.clip();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '15px Inter,Arial,sans-serif';
+        ctx.fillText(String(p.name || p.symbol || ''), R_PAD + 12, y + 30);
+        ctx.restore();
+
+        ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
+        if (p.bid != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(p.bid), R_BUY_X, y + 30); }
+        if (p.ask != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(p.ask), R_SELL_X, y + 30); }
+        ctx.textAlign = 'left';
+      }
+      y += RLINE;
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 24;
+  }
+
   drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG, gcPPct);
   drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG, scPPct);
 

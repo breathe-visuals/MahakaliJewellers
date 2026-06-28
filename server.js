@@ -281,7 +281,9 @@ function getSilverApx()    { return getSilverApxFull()?.sell ?? null; }
 function getGoldBase()      { return getGoldApx(); }
 function getGoldCoinBase()  { 
   if (GOLD_COIN_ROW === 'APX_GOLD') return getGoldApx();
-  return getBaseAsk('gopnath', GOLD_COIN_ROW);
+  let base = getBaseAsk('gopnath', GOLD_COIN_ROW);
+  if (base === null) base = getGoldApxFull()?.ask ?? getGoldApx();
+  return base;
 }
 function getSilverCoinBase(){ return getBaseAsk('swayam', SILVER_COIN_ROW); }
 

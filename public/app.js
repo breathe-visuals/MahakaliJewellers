@@ -1073,6 +1073,9 @@ async function generateRateImage(pageId) {
   const goldBase  = isGold   ? toNum(data.goldBase)            : null;
   const goldProds = isGold   ? (data.goldProducts  || [])      : [];
   const silvProds = isSilver ? (data.silverProducts || [])      : [];
+  const futureRows= (isGold || isSilver) ? (data.futureRows || []) : [];
+  const spotRows  = (isGold || isSilver) ? (data.spotRows   || []) : [];
+
   const gcRows    = isCoins  ? (admin.goldCoins?.rows   || []) : [];
   const scRows    = isCoins  ? (admin.silverCoins?.rows || []) : [];
   const gcBase    = isCoins  ? toNum(data.goldCoinBase)        : null;
@@ -1081,6 +1084,8 @@ async function generateRateImage(pageId) {
   const scDiv     = admin.silverCoins?.divisor || 1000;
   const gcPPG     = admin.goldCoins?.premiumPerGram   ?? 100;
   const scPPG     = admin.silverCoins?.premiumPerGram ?? 12;
+  const gcPPct    = admin.goldCoins?.premiumPercent   ?? 0;
+  const scPPct    = admin.silverCoins?.premiumPercent ?? 0;
 
   /* ── Accurate height calculation ── */
   const HDR_H  = 175;
@@ -1097,6 +1102,9 @@ async function generateRateImage(pageId) {
   if (silvProds.length) {
     H += SEC_H + RLINE + silvProds.length * RLINE + (data.silverApxRow ? RLINE : 0) + 26;
   }
+  if (futureRows.length) H += SEC_H + RLINE + futureRows.length * RLINE + 26;
+  if (spotRows.length)   H += SEC_H + RLINE + spotRows.length * RLINE + 26;
+  
   if (gcRows.length && gcBase !== null) H += SEC_H + RLINE + gcRows.length * RLINE + 26;
   if (scRows.length && scBase !== null) H += SEC_H + RLINE + scRows.length * RLINE + 26;
   if (isCoins && (gcRows.length || scRows.length)) H += 46;
@@ -1284,9 +1292,10 @@ async function generateRateImage(pageId) {
   }
 
   /* ── Coin table: Name + Price (per-gram premium) ── */
-  function drawCoinTable(title, titleCol, rows, baseVal, divisor, premiumPerGram) {
+  function drawCoinTable(title, titleCol, rows, baseVal, divisor, premiumPerGram, premiumPercent) {
     if (!rows.length || baseVal === null) return;
     const base1u      = baseVal / divisor;
+    const pctFactor   = 1 + (premiumPercent || 0) / 100;
     const COIN_NAME_W = (W - PAD * 2) * 0.65;
 
     ctx.fillStyle = titleCol; ctx.font = 'bold 17px Inter,Arial,sans-serif';
@@ -1303,7 +1312,7 @@ async function generateRateImage(pageId) {
       if (i % 2 === 1) {
         ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
       }
-      const price = Math.round(base1u * c.grams + premiumPerGram * c.grams);
+      const price = Math.round((base1u * c.grams + premiumPerGram * c.grams) * pctFactor);
       /* Clip name */
       ctx.save();
       ctx.beginPath(); ctx.rect(PAD + 12, y, COIN_NAME_W, RLINE); ctx.clip();
@@ -1321,8 +1330,10 @@ async function generateRateImage(pageId) {
   /* ── Draw content ── */
   drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
-  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG);
-  drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG);
+  drawProdTable('MARKET RATES (FUTURE)', GOLD, futureRows, null, null);
+  drawProdTable('MARKET RATES (SPOT)', GOLD, spotRows, null, null);
+  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG, gcPPct);
+  drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG, scPPct);
 
   /* Coin note */
   if (isCoins && (gcRows.length || scRows.length)) {

@@ -9,17 +9,17 @@
 'use strict';
 
 /* ── Global config & socket ─────────────────────────────────── */
-let CFG    = null;   /* { site:{}, admin:{} } */
+let CFG = null;   /* { site:{}, admin:{} } */
 let socket = null;
 
 /* ── Previous-state maps for change detection ───────────────── */
 const prev = {
-  future:         {},
-  spot:           {},
-  goldProducts:   {},
+  future: {},
+  spot: {},
+  goldProducts: {},
   silverProducts: {},
-  karatBase:      null,
-  goldCoinBase:   null,
+  karatBase: null,
+  goldCoinBase: null,
   silverCoinBase: null,
 };
 
@@ -29,8 +29,11 @@ const highlights = {};
 /* ── Latest rates snapshot — used by share-image generator ─────── */
 let lastRatesData = null;
 
-/* ── Last known non-null values (persist across feed disconnects) ─ */
-let lastKnown = { goldBase: null, goldCoinBase: null, silverCoinBase: null };
+/* ── Last known non-null values (persist across page reloads via localStorage) */
+let lastKnown = (() => {
+  try { return JSON.parse(localStorage.getItem('mk_lastKnown') || 'null') || { goldBase: null, goldCoinBase: null, silverCoinBase: null }; }
+  catch { return { goldBase: null, goldCoinBase: null, silverCoinBase: null }; }
+})();
 
 /* ── DOM refs — populated after buildUI() ───────────────────── */
 let dom = {};
@@ -62,14 +65,14 @@ function applyTheme(theme) {
   if (!theme) return;
   const root = document.documentElement;
   if (theme.primaryColor) {
-    root.style.setProperty('--brand',     theme.primaryColor);
+    root.style.setProperty('--brand', theme.primaryColor);
     root.style.setProperty('--brand-mid', lighten(theme.primaryColor, 0.12));
-    root.style.setProperty('--brand-bg',  lighten(theme.primaryColor, 0.96));
+    root.style.setProperty('--brand-bg', lighten(theme.primaryColor, 0.96));
     document.getElementById('meta-theme-color')?.setAttribute('content', theme.primaryColor);
   }
   if (theme.accentColor) {
-    root.style.setProperty('--gold',       theme.accentColor);
-    root.style.setProperty('--gold-dark',  darken(theme.accentColor, 0.18));
+    root.style.setProperty('--gold', theme.accentColor);
+    root.style.setProperty('--gold-dark', darken(theme.accentColor, 0.18));
     root.style.setProperty('--gold-shine', lighten(theme.accentColor, 0.18));
   }
 }
@@ -77,30 +80,30 @@ function applyTheme(theme) {
 /* Hex color helpers */
 function hexRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : null;
+  return r ? { r: parseInt(r[1], 16), g: parseInt(r[2], 16), b: parseInt(r[3], 16) } : null;
 }
 function rgbHex(r, g, b) {
-  return '#' + [r,g,b].map(v => Math.min(255,Math.max(0,Math.round(v))).toString(16).padStart(2,'0')).join('');
+  return '#' + [r, g, b].map(v => Math.min(255, Math.max(0, Math.round(v))).toString(16).padStart(2, '0')).join('');
 }
 function lighten(hex, amt) {
   const c = hexRgb(hex); if (!c) return hex;
-  return rgbHex(c.r+(255-c.r)*amt, c.g+(255-c.g)*amt, c.b+(255-c.b)*amt);
+  return rgbHex(c.r + (255 - c.r) * amt, c.g + (255 - c.g) * amt, c.b + (255 - c.b) * amt);
 }
 function darken(hex, amt) {
   const c = hexRgb(hex); if (!c) return hex;
-  return rgbHex(c.r*(1-amt), c.g*(1-amt), c.b*(1-amt));
+  return rgbHex(c.r * (1 - amt), c.g * (1 - amt), c.b * (1 - amt));
 }
 
 /* ================================================================
    UI BUILDER — called once after config is fetched
    ================================================================ */
 function buildUI(cfg) {
-  const site  = cfg.site  || {};
+  const site = cfg.site || {};
   const admin = cfg.admin || {};
-  const biz   = site.business || {};
-  const feat  = admin.features || {};
-  const pages = admin.pages    || {};
-  const secs  = admin.sections || {};
+  const biz = site.business || {};
+  const feat = admin.features || {};
+  const pages = admin.pages || {};
+  const secs = admin.sections || {};
 
   /* ── Meta & title ── */
   const title = biz.name ? `${biz.name} – Live Rates` : 'Live Rates';
@@ -119,7 +122,7 @@ function buildUI(cfg) {
   /* ── Marquee ── */
   /* ── Ticker bar (always shown, scroll text optional) ── */
   const track = q('ticker-track');
-  const mt    = q('marquee-text');
+  const mt = q('marquee-text');
   if (feat.showMarquee !== false && site.marquee?.enabled !== false) {
     const raw = site.marquee?.text || '';
     /* Duplicate text for seamless CSS animation loop */
@@ -133,14 +136,14 @@ function buildUI(cfg) {
   startLiveClock();
 
   /* ── Connection status visibility ── */
-  if (feat.showConnectionStatus === false) q('status')?.style?.setProperty?.('display','none');
-  if (feat.showLastUpdated      === false) q('lastUpdated')?.style?.setProperty?.('display','none');
+  if (feat.showConnectionStatus === false) q('status')?.style?.setProperty?.('display', 'none');
+  if (feat.showLastUpdated === false) q('lastUpdated')?.style?.setProperty?.('display', 'none');
 
   /* ── Determine enabled pages ── */
   const enabledPages = [];
-  if (pages.gold   !== false) enabledPages.push('gold');
+  if (pages.gold !== false) enabledPages.push('gold');
   if (pages.silver !== false) enabledPages.push('silver');
-  if (pages.coins  !== false) enabledPages.push('coins');
+  if (pages.coins !== false) enabledPages.push('coins');
 
   /* ── Build all parts ── */
   buildDesktopNav(enabledPages);
@@ -151,18 +154,18 @@ function buildUI(cfg) {
 
   /* ── Bind DOM refs after pages are in the DOM ── */
   dom = {
-    clock:        q('live-clock'),
-    status:       q('status'),
-    marqueeWrap:  q('marquee-wrap'),
-    tickerTrack:  q('ticker-track'),
-    marqueeText:  q('marquee-text'),
-    futureBox:         q('futureBox'),
-    spotBox:           q('spotBox'),
-    goldProductsBox:   q('goldProductsBox'),
+    clock: q('live-clock'),
+    status: q('status'),
+    marqueeWrap: q('marquee-wrap'),
+    tickerTrack: q('ticker-track'),
+    marqueeText: q('marquee-text'),
+    futureBox: q('futureBox'),
+    spotBox: q('spotBox'),
+    goldProductsBox: q('goldProductsBox'),
     silverProductsBox: q('silverProductsBox'),
-    goldCoinBox:       q('goldCoinBox'),
-    silverCoinBox:     q('silverCoinBox'),
-    slider:            q('rateSlider'),
+    goldCoinBox: q('goldCoinBox'),
+    silverCoinBox: q('silverCoinBox'),
+    slider: q('rateSlider'),
   };
 
   /* ── Activate first page ── */
@@ -174,11 +177,11 @@ function buildUI(cfg) {
    NAV BUILDERS
    ================================================================ */
 const ICONS = {
-  gold:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M6 9V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="2" y1="14" x2="22" y2="14"/></svg>`,
+  gold: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M6 9V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/><line x1="2" y1="14" x2="22" y2="14"/></svg>`,
   silver: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
-  coins:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><line x1="9.68" y1="14.68" x2="11.41" y2="12.97"/></svg>`,
-  phone:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.97-.97a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>`,
-  share:  `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
+  coins: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><line x1="9.68" y1="14.68" x2="11.41" y2="12.97"/></svg>`,
+  phone: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.97-.97a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 17z"/></svg>`,
+  share: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`,
   whatsapp: `<svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>`,
   instagram: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>`,
   facebook: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>`,
@@ -187,9 +190,9 @@ const ICONS = {
 };
 
 const PAGE_META = {
-  gold:   { label: 'Gold Rates',   bnav: 'Gold',   icon: ICONS.gold   },
+  gold: { label: 'Gold Rates', bnav: 'Gold', icon: ICONS.gold },
   silver: { label: 'Silver Rates', bnav: 'Silver', icon: ICONS.silver },
-  coins:  { label: 'Coin Rates',   bnav: 'Coins',  icon: ICONS.coins  },
+  coins: { label: 'Coin Rates', bnav: 'Coins', icon: ICONS.coins },
 };
 
 function buildDesktopNav(pages) {
@@ -199,8 +202,8 @@ function buildDesktopNav(pages) {
   if (left) {
     left.innerHTML = pages.map((id, i) => {
       const m = PAGE_META[id] || { label: id, icon: '' };
-      return `<button class="dnav-btn${i===0?' active':''}" id="dnav-${id}"
-        aria-pressed="${i===0}" onclick="switchPage('${id}')">
+      return `<button class="dnav-btn${i === 0 ? ' active' : ''}" id="dnav-${id}"
+        aria-pressed="${i === 0}" onclick="switchPage('${id}')">
         <span class="dnav-icon">${m.icon}</span>${m.label}
       </button>`;
     }).join('');
@@ -224,7 +227,7 @@ function buildBottomNav(pages) {
   if (!inner) return;
   let html = pages.map((id, i) => {
     const m = PAGE_META[id] || { label: id, bnav: id, icon: '' };
-    return `<button class="bnav-btn${i===0?' active':''}" id="bnav-${id}"
+    return `<button class="bnav-btn${i === 0 ? ' active' : ''}" id="bnav-${id}"
       aria-label="${m.label}" onclick="switchPage('${id}')">
       <span class="bnav-icon">${m.icon}</span>
       <span class="bnav-label">${m.bnav}</span>
@@ -247,9 +250,9 @@ function buildPages(pages, admin, site) {
   if (!root) return;
 
   const builders = {
-    gold:   () => buildGoldPage(admin),
+    gold: () => buildGoldPage(admin),
     silver: () => buildSilverPage(admin),
-    coins:  () => buildCoinsPage(admin),
+    coins: () => buildCoinsPage(admin),
   };
 
   root.innerHTML = '';
@@ -265,8 +268,8 @@ function buildPages(pages, admin, site) {
 
 /* ── Gold page ── */
 function buildGoldPage(admin) {
-  const secs = admin.sections  || {};
-  const gr   = admin.goldRates || {};
+  const secs = admin.sections || {};
+  const gr = admin.goldRates || {};
   let h = `<h1 class="page-title">Gold Rates</h1>`;
 
   if (secs.karatRates !== false && gr.karats?.length) {
@@ -304,7 +307,7 @@ function buildGoldPage(admin) {
   }
 
   const showF = secs.futureRates !== false;
-  const showS = secs.spotRates   !== false;
+  const showS = secs.spotRates !== false;
   if (showF || showS) {
     const dotCount = [showF, showS].filter(Boolean).length;
     const dots = dotCount > 1
@@ -370,22 +373,22 @@ function buildSilverPage(admin) {
 
 /* ── Coins page ── */
 function buildCoinsPage(admin) {
-  const gc = admin.goldCoins   || {};
+  const gc = admin.goldCoins || {};
   const sc = admin.silverCoins || {};
-  const hasGold   = (gc.rows?.length  || 0) > 0;
-  const hasSilver = (sc.rows?.length  || 0) > 0;
+  const hasGold = (gc.rows?.length || 0) > 0;
+  const hasSilver = (sc.rows?.length || 0) > 0;
 
   let h = `<h1 class="page-title">Coin Rates</h1>`;
   if (!hasGold && !hasSilver) return h + '<p class="empty-msg">No coin rows configured in admin-config.json</p>';
 
   const tabs = [];
-  if (hasGold)   tabs.push({ id: 'goldcoin',   label: 'Gold Coin',   icon: '⚜' });
+  if (hasGold) tabs.push({ id: 'goldcoin', label: 'Gold Coin', icon: '⚜' });
   if (hasSilver) tabs.push({ id: 'silvercoin', label: 'Silver Coin', icon: '◈' });
 
   h += `<div class="coin-tabs" role="tablist" aria-label="Coin types">
     ${tabs.map((t, i) => `
-      <button class="coin-tab${i===0?' active':''}" id="tab-${t.id}" role="tab"
-        aria-selected="${i===0}" aria-controls="panel-${t.id}"
+      <button class="coin-tab${i === 0 ? ' active' : ''}" id="tab-${t.id}" role="tab"
+        aria-selected="${i === 0}" aria-controls="panel-${t.id}"
         onclick="switchCoinTab('${t.id}')">
         <span class="coin-tab-icon">${t.icon}</span> ${t.label}
       </button>`).join('')}
@@ -459,19 +462,19 @@ function buildFooter(biz, footerCfg, socials) {
   let contactsHtml = '';
 
   if (footerCfg?.showPhone !== false && biz?.phone) {
-    contactsHtml += `<span class="footer-contact"><a href="tel:${String(biz.phone).replace(/\\s/g,'')}">${ICONS.phone} ${esc(biz.phone)}</a></span>`;
+    contactsHtml += `<span class="footer-contact"><a href="tel:${String(biz.phone).replace(/\\s/g, '')}">${ICONS.phone} ${esc(biz.phone)}</a></span>`;
   }
   if (footerCfg?.showPhone !== false && biz?.phone2) {
-    contactsHtml += `<span class="footer-contact"><a href="tel:${String(biz.phone2).replace(/\\s/g,'')}">${ICONS.phone} ${esc(biz.phone2)}</a></span>`;
+    contactsHtml += `<span class="footer-contact"><a href="tel:${String(biz.phone2).replace(/\\s/g, '')}">${ICONS.phone} ${esc(biz.phone2)}</a></span>`;
   }
   if (footerCfg?.showWhatsapp !== false && biz?.whatsapp) {
-    contactsHtml += `<span class="footer-contact"><a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}">${ICONS.whatsapp} WhatsApp</a></span>`;
+    contactsHtml += `<span class="footer-contact"><a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g, '')}">${ICONS.whatsapp} WhatsApp</a></span>`;
   }
 
   if (contactsHtml) {
     html += `<div class="footer-contacts-wrap">${contactsHtml}</div>`;
   }
-  
+
   if (footerCfg?.showAddress !== false && biz?.address) {
     html += `<p class="footer-address">${esc(biz.address)}</p>`;
   }
@@ -479,9 +482,9 @@ function buildFooter(biz, footerCfg, socials) {
   // Socials
   const socialsHtml = [];
   if (socials?.instagram) socialsHtml.push(`<a href="${esc(socials.instagram)}" target="_blank" aria-label="Instagram">${ICONS.instagram}</a>`);
-  if (socials?.facebook)  socialsHtml.push(`<a href="${esc(socials.facebook)}"  target="_blank" aria-label="Facebook">${ICONS.facebook}</a>`);
-  if (socials?.website)   socialsHtml.push(`<a href="${esc(socials.website)}"   target="_blank" aria-label="Website">${ICONS.globe}</a>`);
-  
+  if (socials?.facebook) socialsHtml.push(`<a href="${esc(socials.facebook)}"  target="_blank" aria-label="Facebook">${ICONS.facebook}</a>`);
+  if (socials?.website) socialsHtml.push(`<a href="${esc(socials.website)}"   target="_blank" aria-label="Website">${ICONS.globe}</a>`);
+
   if (socialsHtml.length > 0) {
     html += `<div class="footer-socials">${socialsHtml.join('')}</div>`;
   }
@@ -523,8 +526,8 @@ function registerSW() {
 
     /* Also check for updates right now (catches the case where SW
        is already waiting from a previous navigation) */
-    reg.update().catch(() => {});
-  }).catch(() => {});
+    reg.update().catch(() => { });
+  }).catch(() => { });
 }
 
 /* ================================================================
@@ -545,8 +548,8 @@ function fmt(val) {
 
 function esc(s) {
   return String(s ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function itemKey(row) {
@@ -556,19 +559,19 @@ function itemKey(row) {
 function rowToPlain(row) {
   return {
     symbol: String(row?.symbol || '').toLowerCase(),
-    name:   row?.name   || '',
-    bid:    toNum(row?.bid),
-    ask:    toNum(row?.ask),
-    high:   toNum(row?.high),
-    low:    toNum(row?.low),
+    name: row?.name || '',
+    bid: toNum(row?.bid),
+    ask: toNum(row?.ask),
+    high: toNum(row?.high),
+    low: toNum(row?.low),
   };
 }
 
 function symbolLabel(sym, fallback) {
   const s = String(sym || '').toLowerCase();
   const map = {
-    gold:'Gold', silver:'Silver', goldnext:'Gold Next', silvernext:'Silver Next',
-    xauusd:'XAU/USD', xagusd:'XAG/USD', inrspot:'INR Spot',
+    gold: 'Gold', silver: 'Silver', goldnext: 'Gold Next', silvernext: 'Silver Next',
+    xauusd: 'XAU/USD', xagusd: 'XAG/USD', inrspot: 'INR Spot',
   };
   return map[s] || fallback || s.toUpperCase();
 }
@@ -584,7 +587,7 @@ function dirClass(cur, prv, key) {
   const c = toNum(cur), p = toNum(prv);
   const now = Date.now();
   if (c !== null && p !== null) {
-    if (c > p) highlights[key] = { dir: 'up',   expiresAt: now + 3000 };
+    if (c > p) highlights[key] = { dir: 'up', expiresAt: now + 3000 };
     else if (c < p) highlights[key] = { dir: 'down', expiresAt: now + 3000 };
   }
   const h = highlights[key];
@@ -608,11 +611,11 @@ function buildTableHTML(rows, prevMap, colLabel) {
   const trs = rows.map(row => {
     const cur = rowToPlain(row);
     const prv = prevMap[itemKey(cur)] || {};
-    const k   = itemKey(cur);
+    const k = itemKey(cur);
     return `<tr data-key="${k}">
       <td class="rowhead">${esc(symbolLabel(cur.symbol, cur.name))}</td>
-      <td class="cell-bid"><span class="chip-val ${dirClass(cur.bid, prv.bid, k+'-bid')}">${fmt(cur.bid)}</span></td>
-      <td class="cell-ask"><span class="chip-val ${dirClass(cur.ask, prv.ask, k+'-ask')}">${fmt(cur.ask)}</span></td>
+      <td class="cell-bid"><span class="chip-val ${dirClass(cur.bid, prv.bid, k + '-bid')}">${fmt(cur.bid)}</span></td>
+      <td class="cell-ask"><span class="chip-val ${dirClass(cur.ask, prv.ask, k + '-ask')}">${fmt(cur.ask)}</span></td>
       <td class="cell-high"><span class="chip-val always-green">${fmt(cur.high)}</span></td>
       <td class="cell-low"><span class="chip-val always-red">${fmt(cur.low)}</span></td>
     </tr>`;
@@ -631,11 +634,11 @@ function renderTable(container, rows, prevMap, type) {
   }
 
   const colLabel = type === 'mini' ? 'Product' : 'Symbol';
-  const table    = container.querySelector('table');
-  const tbody    = table?.querySelector('tbody');
+  const table = container.querySelector('table');
+  const tbody = table?.querySelector('tbody');
   /* Exclude injected .apx-tr rows from the count to avoid spurious rebuilds */
-  const trs      = tbody ? Array.from(tbody.querySelectorAll('tr:not(.apx-tr)')) : [];
-  let rebuild    = !table || trs.length !== rows.length;
+  const trs = tbody ? Array.from(tbody.querySelectorAll('tr:not(.apx-tr)')) : [];
+  let rebuild = !table || trs.length !== rows.length;
 
   if (!rebuild) {
     for (let i = 0; i < rows.length; i++) {
@@ -649,12 +652,12 @@ function renderTable(container, rows, prevMap, type) {
     rows.forEach((row, i) => {
       const cur = rowToPlain(row);
       const prv = prevMap[itemKey(cur)] || {};
-      const k   = itemKey(cur);
-      const tr  = trs[i];
-      updateCell(tr.querySelector('.cell-bid'),  cur.bid,  prv.bid,  k+'-bid');
-      updateCell(tr.querySelector('.cell-ask'),  cur.ask,  prv.ask,  k+'-ask');
+      const k = itemKey(cur);
+      const tr = trs[i];
+      updateCell(tr.querySelector('.cell-bid'), cur.bid, prv.bid, k + '-bid');
+      updateCell(tr.querySelector('.cell-ask'), cur.ask, prv.ask, k + '-ask');
       updateCell(tr.querySelector('.cell-high'), cur.high, null, null, 'always-green');
-      updateCell(tr.querySelector('.cell-low'),  cur.low,  null, null, 'always-red');
+      updateCell(tr.querySelector('.cell-low'), cur.low, null, null, 'always-red');
     });
   }
 }
@@ -680,11 +683,11 @@ function renderApxTableRow(containerId, label, apxData) {
 
   const sell = apxData?.sell ?? null;
   const high = apxData?.high ?? null;
-  const low  = apxData?.low  ?? null;
+  const low = apxData?.low ?? null;
   const sellTxt = sell !== null ? String(sell) : '—';
   const highTxt = high !== null ? String(high) : '—';
-  const lowTxt  = low  !== null ? String(low)  : '—';
-  const rowId   = containerId + '-apx';
+  const lowTxt = low !== null ? String(low) : '—';
+  const rowId = containerId + '-apx';
 
   let tr = document.getElementById(rowId);
   if (!tr) {
@@ -702,10 +705,10 @@ function renderApxTableRow(containerId, label, apxData) {
   } else {
     const elSell = q(rowId + '-sell');
     const elHigh = q(rowId + '-high');
-    const elLow  = q(rowId + '-low');
+    const elLow = q(rowId + '-low');
     if (elSell && elSell.textContent !== sellTxt) elSell.textContent = sellTxt;
     if (elHigh && elHigh.textContent !== highTxt) elHigh.textContent = highTxt;
-    if (elLow  && elLow.textContent  !== lowTxt)  elLow.textContent  = lowTxt;
+    if (elLow && elLow.textContent !== lowTxt) elLow.textContent = lowTxt;
   }
 }
 
@@ -714,15 +717,15 @@ function renderApxTableRow(containerId, label, apxData) {
    KARAT RENDERER
    ================================================================ */
 function renderKaratRates(goldBase) {
-  const base   = toNum(goldBase);
+  const base = toNum(goldBase);
   const karats = CFG?.admin?.goldRates?.karats || [];
 
   karats.forEach(k => {
     const el = q(`kp-${kid(k.name)}`);
     if (!el) return;
 
-    const price     = base !== null ? Math.round(base * k.multiplier) : null;
-    const prevBase  = prev.karatBase;
+    const price = base !== null ? Math.round(base * k.multiplier) : null;
+    const prevBase = prev.karatBase;
     const prevPrice = prevBase !== null ? Math.round(prevBase * k.multiplier) : null;
 
     const text = price !== null ? price.toLocaleString('en-IN') : '—';
@@ -743,8 +746,8 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGr
   const container = q(containerId);
   if (!container || !configRows?.length) return;
 
-  const baseRaw   = toNum(baseVal);
-  const base1u    = baseRaw !== null ? baseRaw / divisor : null;
+  const baseRaw = toNum(baseVal);
+  const base1u = baseRaw !== null ? baseRaw / divisor : null;
   const pctFactor = 1 + (premiumPercent || 0) / 100;
 
   const table = container.querySelector('.coin-table');
@@ -771,12 +774,12 @@ function renderCoinTable(containerId, configRows, baseVal, divisor, premiumPerGr
       const el = q(`${containerId}-r${i}`);
       if (!el) return;
 
-      const price    = base1u !== null
+      const price = base1u !== null
         ? Math.round((base1u * c.grams + premiumPerGram * c.grams) * pctFactor)
         : null;
       const prevBase = prev[prevKey];
-      const prevU    = prevBase !== null ? prevBase / divisor : null;
-      const prevP    = prevU   !== null
+      const prevU = prevBase !== null ? prevBase / divisor : null;
+      const prevP = prevU !== null
         ? Math.round((prevU * c.grams + premiumPerGram * c.grams) * pctFactor)
         : null;
 
@@ -799,37 +802,39 @@ function renderAll(data) {
   if (!CFG) return;
   lastRatesData = data;
   /* Cache non-null base values so PNG still generates on weekends */
-  if (toNum(data?.goldBase)       !== null) lastKnown.goldBase       = toNum(data.goldBase);
-  if (toNum(data?.goldCoinBase)   !== null) lastKnown.goldCoinBase   = toNum(data.goldCoinBase);
-  if (toNum(data?.silverCoinBase) !== null) lastKnown.silverCoinBase = toNum(data.silverCoinBase);
+  let lkChanged = false;
+  if (toNum(data?.goldBase) !== null) { lastKnown.goldBase = toNum(data.goldBase); lkChanged = true; }
+  if (toNum(data?.goldCoinBase) !== null) { lastKnown.goldCoinBase = toNum(data.goldCoinBase); lkChanged = true; }
+  if (toNum(data?.silverCoinBase) !== null) { lastKnown.silverCoinBase = toNum(data.silverCoinBase); lkChanged = true; }
+  if (lkChanged) { try { localStorage.setItem('mk_lastKnown', JSON.stringify(lastKnown)); } catch { } }
   const admin = CFG.admin || {};
 
-  renderTable(dom.goldProductsBox,   data?.goldProducts,   prev.goldProducts,   'mini');
-  renderApxTableRow('goldProductsBox',   'BEFORE GST',    data?.goldApxRow);
+  renderTable(dom.goldProductsBox, data?.goldProducts, prev.goldProducts, 'mini');
+  renderApxTableRow('goldProductsBox', 'BEFORE GST', data?.goldApxRow);
 
   renderTable(dom.silverProductsBox, data?.silverProducts, prev.silverProducts, 'mini');
   renderApxTableRow('silverProductsBox', 'BEFORE GST PETI', data?.silverApxRow);
 
   renderTable(dom.futureBox, data?.futureRows, prev.future, 'rate');
-  renderTable(dom.spotBox,   data?.spotRows,   prev.spot,   'rate');
+  renderTable(dom.spotBox, data?.spotRows, prev.spot, 'rate');
 
   renderKaratRates(data?.goldBase);
 
-  const goldDiv   = admin.goldCoins?.divisor   || 10;
+  const goldDiv = admin.goldCoins?.divisor || 10;
   const silverDiv = admin.silverCoins?.divisor || 1000;
-  const goldPremiumPerGram    = admin.goldCoins?.premiumPerGram    ?? 100;
-  const silverPremiumPerGram  = admin.silverCoins?.premiumPerGram  ?? 12;
-  const goldPremiumPercent    = admin.goldCoins?.premiumPercent    ?? 0;
-  const silverPremiumPercent  = admin.silverCoins?.premiumPercent  ?? 0;
-  renderCoinTable('goldCoinBox',   admin.goldCoins?.rows,   data?.goldCoinBase,   goldDiv,   goldPremiumPerGram,   goldPremiumPercent,   'goldCoinBase');
+  const goldPremiumPerGram = admin.goldCoins?.premiumPerGram ?? 100;
+  const silverPremiumPerGram = admin.silverCoins?.premiumPerGram ?? 12;
+  const goldPremiumPercent = admin.goldCoins?.premiumPercent ?? 0;
+  const silverPremiumPercent = admin.silverCoins?.premiumPercent ?? 0;
+  renderCoinTable('goldCoinBox', admin.goldCoins?.rows, data?.goldCoinBase, goldDiv, goldPremiumPerGram, goldPremiumPercent, 'goldCoinBase');
   renderCoinTable('silverCoinBox', admin.silverCoins?.rows, data?.silverCoinBase, silverDiv, silverPremiumPerGram, silverPremiumPercent, 'silverCoinBase');
 
 
 
-  prev.goldProducts   = updatePrevMap(data?.goldProducts);
+  prev.goldProducts = updatePrevMap(data?.goldProducts);
   prev.silverProducts = updatePrevMap(data?.silverProducts);
-  prev.future         = updatePrevMap(data?.futureRows);
-  prev.spot           = updatePrevMap(data?.spotRows);
+  prev.future = updatePrevMap(data?.futureRows);
+  prev.spot = updatePrevMap(data?.spotRows);
 
   const live = data?.connected?.gopnath || data?.connected?.swayam;
   setStatus(live ? 'live' : 'connecting');
@@ -841,7 +846,7 @@ function renderAll(data) {
 function setStatus(s) {
   if (!dom.status) return;
   dom.status.className = 'status-dot ' + s;
-  dom.status.title     = s === 'live' ? 'Connected – live' : 'Connecting…';
+  dom.status.title = s === 'live' ? 'Connected – live' : 'Connecting…';
 }
 
 /* ================================================================
@@ -849,15 +854,15 @@ function setStatus(s) {
    ================================================================ */
 function initSocket() {
   socket = io({
-    transports:          ['websocket'],
-    upgrade:             false,
-    reconnectionDelay:    0,
+    transports: ['websocket'],
+    upgrade: false,
+    reconnectionDelay: 0,
     reconnectionDelayMax: 500,
   });
-  socket.on('connect',       () => setStatus('live'));
-  socket.on('disconnect',    () => setStatus('disconnected'));
+  socket.on('connect', () => setStatus('live'));
+  socket.on('disconnect', () => setStatus('disconnected'));
   socket.on('connect_error', () => setStatus('disconnected'));
-  socket.on('rates:update',  renderAll);
+  socket.on('rates:update', renderAll);
 }
 
 /* ================================================================
@@ -907,7 +912,7 @@ function initSlider() {
   allDots().forEach((dot, i) => {
     dot.addEventListener('click', () => {
       const cards = track.querySelectorAll('.slider-card');
-      if (cards[i]) cards[i].scrollIntoView({ behavior:'smooth', block:'nearest', inline:'start' });
+      if (cards[i]) cards[i].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
     });
   });
 
@@ -916,7 +921,7 @@ function initSlider() {
     clearTimeout(t);
     t = setTimeout(() => {
       const cards = Array.from(track.querySelectorAll('.slider-card'));
-      const sl    = track.scrollLeft;
+      const sl = track.scrollLeft;
       let ci = 0, md = Infinity;
       cards.forEach((c, i) => { const d = Math.abs(c.offsetLeft - sl); if (d < md) { md = d; ci = i; } });
       updateDots(ci);
@@ -946,10 +951,10 @@ function startLiveClock() {
 function shareRates() {
   document.querySelector('.share-overlay')?.remove();
   const pages = CFG?.admin?.pages || {};
-  const opts  = [];
-  if (pages.gold   !== false) opts.push({ id:'gold',   label:'Gold Rates',   icon: ICONS.gold   });
-  if (pages.silver !== false) opts.push({ id:'silver', label:'Silver Rates', icon: ICONS.silver });
-  if (pages.coins  !== false) opts.push({ id:'coins',  label:'Coin Rates',   icon: ICONS.coins  });
+  const opts = [];
+  if (pages.gold !== false) opts.push({ id: 'gold', label: 'Gold Rates', icon: ICONS.gold });
+  if (pages.silver !== false) opts.push({ id: 'silver', label: 'Silver Rates', icon: ICONS.silver });
+  if (pages.coins !== false) opts.push({ id: 'coins', label: 'Coin Rates', icon: ICONS.coins });
 
   const overlay = document.createElement('div');
   overlay.className = 'share-overlay';
@@ -977,7 +982,7 @@ function showCallModal() {
     window.location.href = 'tel:' + biz.phone;
     return;
   }
-  
+
   document.querySelector('.share-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'share-overlay call-overlay';
@@ -997,7 +1002,7 @@ function showCallModal() {
             <span>${esc(biz.phone2)}</span>
           </a>` : ''}
         ${biz.whatsapp ? `
-          <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g,'')}" class="share-opt-btn" style="text-decoration:none;">
+          <a href="https://wa.me/${String(biz.whatsapp).replace(/[^0-9]/g, '')}" class="share-opt-btn" style="text-decoration:none;">
             <span class="share-opt-icon">${ICONS.whatsapp}</span>
             <span>WhatsApp</span>
           </a>` : ''}
@@ -1038,11 +1043,11 @@ async function doSharePage(pageId) {
     const blob = await generateRateImage(pageId);
     if (!blob) throw new Error('empty');
     document.querySelector('.share-overlay')?.remove();
-    const biz   = CFG?.site?.business || {};
-    const fname = `${(biz.name||'rates').replace(/\s+/g,'-')}-${pageId}-${new Date().toISOString().slice(0,10)}.png`;
-    const file  = new File([blob], fname, { type: 'image/png' });
+    const biz = CFG?.site?.business || {};
+    const fname = `${(biz.name || 'rates').replace(/\s+/g, '-')}-${pageId}-${new Date().toISOString().slice(0, 10)}.png`;
+    const file = new File([blob], fname, { type: 'image/png' });
     if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file], title: `${biz.name||'Live Rates'} \u2013 ${pageId}` });
+      await navigator.share({ files: [file], title: `${biz.name || 'Live Rates'} \u2013 ${pageId}` });
     } else {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1050,7 +1055,7 @@ async function doSharePage(pageId) {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 8000);
     }
-  } catch(err) {
+  } catch (err) {
     if (err.name !== 'AbortError') document.querySelector('.share-overlay')?.remove();
   }
 }
@@ -1060,43 +1065,43 @@ async function doSharePage(pageId) {
    Clean layout: 1080px wide, no diagonal lines, clipped name columns
    ================================================================ */
 async function generateRateImage(pageId) {
-  const site  = CFG?.site  || {};
+  const site = CFG?.site || {};
   const admin = CFG?.admin || {};
-  const biz   = site.business || {};
-  const theme = site.theme   || {};
-  const data  = lastRatesData || {};
+  const biz = site.business || {};
+  const theme = site.theme || {};
+  const data = lastRatesData || {};
   const BRAND = theme.primaryColor || '#134258';
-  const GOLD  = theme.accentColor  || '#D9B25F';
+  const GOLD = theme.accentColor || '#D9B25F';
 
-  const W     = 1080;  // wide enough for all numbers
-  const PAD   = 52;
+  const W = 1080;  // wide enough for all numbers
+  const PAD = 52;
   const RLINE = 46;    // row height
 
-  const isGold   = pageId === 'gold';
+  const isGold = pageId === 'gold';
   const isSilver = pageId === 'silver';
-  const isCoins  = pageId === 'coins';
+  const isCoins = pageId === 'coins';
 
-  const karats    = isGold   ? (admin.goldRates?.karats || []) : [];
-  const goldBase  = isGold   ? (toNum(data.goldBase)   ?? lastKnown.goldBase)   : null;
-  const goldProds = isGold   ? (data.goldProducts  || [])      : [];
-  const silvProds = isSilver ? (data.silverProducts || [])      : [];
-  const futureRows= isGold ? (data.futureRows || []) : [];
-  const spotRows  = isGold ? (data.spotRows   || []) : [];
+  const karats = isGold ? (admin.goldRates?.karats || []) : [];
+  const goldBase = isGold ? (toNum(data.goldBase) ?? lastKnown.goldBase) : null;
+  const goldProds = isGold ? (data.goldProducts || []) : [];
+  const silvProds = isSilver ? (data.silverProducts || []) : [];
+  const futureRows = isGold ? (data.futureRows || []) : [];
+  const spotRows = isGold ? (data.spotRows || []) : [];
 
-  const gcRows    = isCoins  ? (admin.goldCoins?.rows   || []) : [];
-  const scRows    = isCoins  ? (admin.silverCoins?.rows || []) : [];
-  const gcBase    = isCoins  ? (toNum(data.goldCoinBase)   ?? toNum(data.goldBase) ?? lastKnown.goldCoinBase   ?? lastKnown.goldBase)   : null;
-  const scBase    = isCoins  ? (toNum(data.silverCoinBase) ?? lastKnown.silverCoinBase) : null;
-  const gcDiv     = admin.goldCoins?.divisor   || 10;
-  const scDiv     = admin.silverCoins?.divisor || 1000;
-  const gcPPG     = admin.goldCoins?.premiumPerGram   ?? 100;
-  const scPPG     = admin.silverCoins?.premiumPerGram ?? 12;
-  const gcPPct    = admin.goldCoins?.premiumPercent   ?? 0;
-  const scPPct    = admin.silverCoins?.premiumPercent ?? 0;
+  const gcRows = isCoins ? (admin.goldCoins?.rows || []) : [];
+  const scRows = isCoins ? (admin.silverCoins?.rows || []) : [];
+  const gcBase = isCoins ? (toNum(data.goldCoinBase) ?? toNum(data.goldBase) ?? lastKnown.goldCoinBase ?? lastKnown.goldBase) : null;
+  const scBase = isCoins ? (toNum(data.silverCoinBase) ?? lastKnown.silverCoinBase) : null;
+  const gcDiv = admin.goldCoins?.divisor || 10;
+  const scDiv = admin.silverCoins?.divisor || 1000;
+  const gcPPG = admin.goldCoins?.premiumPerGram ?? 100;
+  const scPPG = admin.silverCoins?.premiumPerGram ?? 12;
+  const gcPPct = admin.goldCoins?.premiumPercent ?? 0;
+  const scPPct = admin.silverCoins?.premiumPercent ?? 0;
 
   /* ── Accurate height calculation ── */
-  const HDR_H  = 175;
-  const SEC_H  = 36;
+  const HDR_H = 175;
+  const SEC_H = 36;
   const FOOT_H = 100;
   let H = HDR_H;
 
@@ -1125,9 +1130,9 @@ async function generateRateImage(pageId) {
   const ctx = canvas.getContext('2d');
 
   const bgGrd = ctx.createLinearGradient(0, 0, 0, H);
-  bgGrd.addColorStop(0,   BRAND);
+  bgGrd.addColorStop(0, BRAND);
   bgGrd.addColorStop(0.6, '#0d2535');
-  bgGrd.addColorStop(1,   '#081820');
+  bgGrd.addColorStop(1, '#081820');
   ctx.fillStyle = bgGrd;
   ctx.fillRect(0, 0, W, H);
 
@@ -1148,13 +1153,13 @@ async function generateRateImage(pageId) {
         new Promise((res, rej) => {
           const img = new Image();
           img.crossOrigin = 'anonymous';
-          img.onload  = () => res(img);
+          img.onload = () => res(img);
           img.onerror = rej;
-          img.src     = biz.logo;
+          img.src = biz.logo;
         }),
         new Promise((_, rej) => setTimeout(rej, 3000)),
       ]);
-    } catch {}
+    } catch { }
   }
 
   if (logoImg) {
@@ -1193,12 +1198,12 @@ async function generateRateImage(pageId) {
   /* ── Column x-positions for product tables (right-aligned numbers) ──
      W=1080, PAD=52 → usable=976
      BUY at 590, SELL at 730, HIGH at 870, LOW at 1028 (W-52)            */
-  const NM_X        = PAD + 12;
-  const BUY_X       = 590;
-  const SELL_X      = 730;
-  const HIGH_X      = 870;
-  const LOW_X       = W - PAD - 4;
-  const NAME_MAX_W  = BUY_X - NM_X - 24;   // clip boundary for names
+  const NM_X = PAD + 12;
+  const BUY_X = 590;
+  const SELL_X = 730;
+  const HIGH_X = 870;
+  const LOW_X = W - PAD - 4;
+  const NAME_MAX_W = BUY_X - NM_X - 24;   // clip boundary for names
 
   /* ── KARAT RATES section (gold only) ── */
   if (isGold && karats.length && goldBase !== null) {
@@ -1221,7 +1226,7 @@ async function generateRateImage(pageId) {
     ctx.textAlign = 'left';
     y += 34;
 
-    const cols  = Math.min(karats.length, 4);
+    const cols = Math.min(karats.length, 4);
     const cardW = Math.floor((W - PAD * 2 - (cols - 1) * 10) / cols);
     const cardH = 88;
     karats.forEach((k, i) => {
@@ -1255,10 +1260,10 @@ async function generateRateImage(pageId) {
     ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
     ctx.fillText('PRODUCT', NM_X, y + 30);
     ctx.textAlign = 'right';
-    ctx.fillText('BUY',  BUY_X,  y + 30);
+    ctx.fillText('BUY', BUY_X, y + 30);
     ctx.fillText('SELL', SELL_X, y + 30);
     ctx.fillText('HIGH', HIGH_X, y + 30);
-    ctx.fillText('LOW',  LOW_X,  y + 30);
+    ctx.fillText('LOW', LOW_X, y + 30);
     ctx.textAlign = 'left'; y += RLINE;
 
     rows.forEach((p, i) => {
@@ -1274,10 +1279,10 @@ async function generateRateImage(pageId) {
 
       ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
       const dash = (v) => v != null ? String(v) : '\u2014';
-      ctx.fillStyle = p.bid  != null ? '#86efac' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.bid),  BUY_X,  y + 30);
-      ctx.fillStyle = p.ask  != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.ask),  SELL_X, y + 30);
+      ctx.fillStyle = p.bid != null ? '#86efac' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.bid), BUY_X, y + 30);
+      ctx.fillStyle = p.ask != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.ask), SELL_X, y + 30);
       ctx.fillStyle = p.high != null ? '#86efac' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.high), HIGH_X, y + 30);
-      ctx.fillStyle = p.low  != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.low),  LOW_X,  y + 30);
+      ctx.fillStyle = p.low != null ? '#fca5a5' : 'rgba(255,255,255,0.25)'; ctx.fillText(dash(p.low), LOW_X, y + 30);
       ctx.textAlign = 'left'; y += RLINE;
     });
 
@@ -1285,15 +1290,15 @@ async function generateRateImage(pageId) {
     if (apxData) {
       const sell = apxData.sell ?? null;
       const high = apxData.high ?? null;
-      const low  = apxData.low  ?? null;
+      const low = apxData.low ?? null;
       ctx.fillStyle = 'rgba(217,178,95,0.12)'; ctx.fillRect(PAD, y, W - PAD * 2, RLINE);
       ctx.fillStyle = GOLD; ctx.fillRect(PAD, y, 3, RLINE);          // accent bar
       ctx.fillStyle = GOLD; ctx.font = 'italic bold 14px Inter,Arial,sans-serif';
       ctx.fillText(apxLabel, NM_X + 4, y + 30);
       ctx.textAlign = 'right'; ctx.font = 'bold 18px Inter,Arial,sans-serif';
-      if (sell != null) { ctx.fillStyle = GOLD;      ctx.fillText(String(sell), SELL_X, y + 30); }
+      if (sell != null) { ctx.fillStyle = GOLD; ctx.fillText(String(sell), SELL_X, y + 30); }
       if (high != null) { ctx.fillStyle = '#86efac'; ctx.fillText(String(high), HIGH_X, y + 30); }
-      if (low  != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(low),  LOW_X,  y + 30); }
+      if (low != null) { ctx.fillStyle = '#fca5a5'; ctx.fillText(String(low), LOW_X, y + 30); }
       ctx.textAlign = 'left'; y += RLINE;
     }
 
@@ -1303,8 +1308,8 @@ async function generateRateImage(pageId) {
   /* ── Coin table: Name + Price (per-gram premium) ── */
   function drawCoinTable(title, titleCol, rows, baseVal, divisor, premiumPerGram, premiumPercent) {
     if (!rows.length || baseVal === null) return;
-    const base1u      = baseVal / divisor;
-    const pctFactor   = 1 + (premiumPercent || 0) / 100;
+    const base1u = baseVal / divisor;
+    const pctFactor = 1 + (premiumPercent || 0) / 100;
     const COIN_NAME_W = (W - PAD * 2) * 0.65;
 
     ctx.fillStyle = titleCol; ctx.font = 'bold 17px Inter,Arial,sans-serif';
@@ -1337,7 +1342,7 @@ async function generateRateImage(pageId) {
   }
 
   /* ── Draw content ── */
-  drawProdTable('GOLD PRODUCTS',   GOLD,     goldProds, 'BEFORE GST',      data.goldApxRow);
+  drawProdTable('GOLD PRODUCTS', GOLD, goldProds, 'BEFORE GST', data.goldApxRow);
   drawProdTable('SILVER PRODUCTS', '#94a3b8', silvProds, 'BEFORE GST PETI', data.silverApxRow);
 
   if (futureRows.length || spotRows.length) {
@@ -1345,17 +1350,17 @@ async function generateRateImage(pageId) {
        Within each half: name takes ~55% of half-width, BUY takes next 22%, SELL takes last 23%
        Half width = (W - PAD*2)/2 - 10 = (1080-104)/2 - 10 = 478px
        Name clip:  ~260px   BUY_right: half_right - 120   SELL_right: half_right - 10  */
-    const L_LEFT   = PAD;
-    const L_RIGHT  = Math.floor(W / 2) - 10;  // 530
-    const L_W      = L_RIGHT - L_LEFT;          // 478
-    const R_LEFT   = Math.floor(W / 2) + 10;  // 550
-    const R_RIGHT  = W - PAD;                   // 1028
-    const R_W      = R_RIGHT - R_LEFT;          // 478
+    const L_LEFT = PAD;
+    const L_RIGHT = Math.floor(W / 2) - 10;  // 530
+    const L_W = L_RIGHT - L_LEFT;          // 478
+    const R_LEFT = Math.floor(W / 2) + 10;  // 550
+    const R_RIGHT = W - PAD;                   // 1028
+    const R_W = R_RIGHT - R_LEFT;          // 478
 
-    const L_BUY_X  = L_RIGHT - 120;
+    const L_BUY_X = L_RIGHT - 120;
     const L_SELL_X = L_RIGHT - 10;
     const L_NAME_W = L_BUY_X - L_LEFT - 20;
-    const R_BUY_X  = R_RIGHT - 120;
+    const R_BUY_X = R_RIGHT - 120;
     const R_SELL_X = R_RIGHT - 10;
     const R_NAME_W = R_BUY_X - R_LEFT - 20;
 
@@ -1371,20 +1376,20 @@ async function generateRateImage(pageId) {
     }
     y += 36;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.14)'; 
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
     if (futureRows.length) ctx.fillRect(L_LEFT, y, L_W, RLINE);
-    if (spotRows.length)   ctx.fillRect(R_LEFT, y, R_W, RLINE);
+    if (spotRows.length) ctx.fillRect(R_LEFT, y, R_W, RLINE);
 
     ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.font = 'bold 12px Inter,Arial,sans-serif';
 
     if (futureRows.length) {
-      ctx.textAlign = 'left';  ctx.fillText('PRODUCT', L_LEFT + 12, y + 30);
-      ctx.textAlign = 'right'; ctx.fillText('BUY',  L_BUY_X,  y + 30);
+      ctx.textAlign = 'left'; ctx.fillText('PRODUCT', L_LEFT + 12, y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('BUY', L_BUY_X, y + 30);
       ctx.textAlign = 'right'; ctx.fillText('SELL', L_SELL_X, y + 30);
     }
     if (spotRows.length) {
-      ctx.textAlign = 'left';  ctx.fillText('PRODUCT', R_LEFT + 12, y + 30);
-      ctx.textAlign = 'right'; ctx.fillText('BUY',  R_BUY_X,  y + 30);
+      ctx.textAlign = 'left'; ctx.fillText('PRODUCT', R_LEFT + 12, y + 30);
+      ctx.textAlign = 'right'; ctx.fillText('BUY', R_BUY_X, y + 30);
       ctx.textAlign = 'right'; ctx.fillText('SELL', R_SELL_X, y + 30);
     }
     ctx.textAlign = 'left';
@@ -1394,7 +1399,7 @@ async function generateRateImage(pageId) {
       if (i % 2 === 1) {
         ctx.fillStyle = 'rgba(255,255,255,0.03)';
         if (i < futureRows.length) ctx.fillRect(L_LEFT, y, L_W, RLINE);
-        if (i < spotRows.length)   ctx.fillRect(R_LEFT, y, R_W, RLINE);
+        if (i < spotRows.length) ctx.fillRect(R_LEFT, y, R_W, RLINE);
       }
 
       if (i < futureRows.length) {
@@ -1427,7 +1432,7 @@ async function generateRateImage(pageId) {
     ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(PAD, y, W - PAD * 2, 1); y += 24;
   }
 
-  drawCoinTable('GOLD COINS',   GOLD,     gcRows, gcBase, gcDiv, gcPPG, gcPPct);
+  drawCoinTable('GOLD COINS', GOLD, gcRows, gcBase, gcDiv, gcPPG, gcPPct);
   drawCoinTable('SILVER COINS', '#94a3b8', scRows, scBase, scDiv, scPPG, scPPct);
 
   /* Coin note */
@@ -1463,12 +1468,12 @@ function imgRoundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
   ctx.lineTo(x + w, y + h - r);
   ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
   ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x,      y + h, x,       y + h - r, r);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
   ctx.lineTo(x, y + r);
-  ctx.arcTo(x,      y,     x + r,   y,         r);
+  ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
 }

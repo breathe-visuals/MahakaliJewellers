@@ -120,7 +120,7 @@ function buildUI(cfg) {
   if (feat.showMarquee !== false && site.marquee?.enabled !== false) {
     const raw = site.marquee?.text || '';
     /* Duplicate text for seamless CSS animation loop */
-    if (mt) mt.textContent = raw + '\u00a0\u00a0\u00a0\u2022\u00a0\u00a0\u00a0' + raw;
+    if (mt) mt.textContent = raw + '\u00a0\u00a0\u00a0\u00a0\u00a0\u00a0' + raw;
     if (track) track.style.display = '';
   }
   /* marquee-wrap is always visible (holds clock + status) */

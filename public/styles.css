@@ -451,7 +451,7 @@ body {
   border-radius: 0 0 var(--radius) var(--radius);
   width: 100%;
 }
-table { min-width: 360px; }
+table { min-width: 100%; }
 
 .slider-track {
   display: flex;

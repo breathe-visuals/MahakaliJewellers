@@ -1100,7 +1100,7 @@ async function generateRateImage(pageId) {
   const FOOT_H = 100;
   let H = HDR_H;
 
-  if (isGold && karats.length && goldBase !== null) {
+  if (isGold && karats.length) {
     H += SEC_H + Math.ceil(karats.length / 4) * 100 + 30;
   }
   if (goldProds.length) {
@@ -1112,9 +1112,9 @@ async function generateRateImage(pageId) {
   if (futureRows.length || spotRows.length) {
     H += SEC_H + RLINE + Math.max(futureRows.length, spotRows.length) * RLINE + 26;
   }
-  
-  if (gcRows.length && gcBase !== null) H += SEC_H + RLINE + gcRows.length * RLINE + 26;
-  if (scRows.length && scBase !== null) H += SEC_H + RLINE + scRows.length * RLINE + 26;
+
+  if (gcRows.length) H += SEC_H + RLINE + gcRows.length * RLINE + 26;
+  if (scRows.length) H += SEC_H + RLINE + scRows.length * RLINE + 26;
   if (isCoins && (gcRows.length || scRows.length)) H += 46;
   H += FOOT_H;
   H = Math.max(H, 640);
